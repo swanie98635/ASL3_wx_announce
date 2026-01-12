@@ -1,4 +1,5 @@
 from datetime import datetime
+import pytz
 from typing import List
 from .models import LocationInfo, CurrentConditions, WeatherForecast, WeatherAlert
 
@@ -6,14 +7,19 @@ class Narrator:
     def __init__(self):
         pass
 
+    def _c_to_f(self, temp_c: float) -> int:
+        return int((temp_c * 9/5) + 32)
+
     def announce_conditions(self, loc: LocationInfo, current: CurrentConditions) -> str:
         wind = ""
         if current.wind_speed and current.wind_speed > 5:
-            wind = f", with winds from the {current.wind_direction} at {int(current.wind_speed)} kilometers per hour"
+            # Describe wind speed in km/h and mph
+            mph = int(current.wind_speed * 0.621371)
+            wind = f", with winds from the {current.wind_direction} at {int(current.wind_speed)} kilometers per hour, or {mph} miles per hour"
         
         return (
             f"Current conditions for {loc.city}, {loc.region}. "
-            f"The temperature is {int(current.temperature)} degrees celsius. "
+            f"The temperature is {int(current.temperature)} degrees celsius, {self._c_to_f(current.temperature)} degrees fahrenheit. "
             f"Conditions are {current.description}{wind}."
         )
 
@@ -25,9 +31,9 @@ class Narrator:
         for f in forecasts[:3]: # Read first 3 periods
             temp = ""
             if f.high_temp is not None:
-                temp = f" with a high of {int(f.high_temp)}"
+                temp = f" with a high of {int(f.high_temp)} celsius, {self._c_to_f(f.high_temp)} fahrenheit"
             elif f.low_temp is not None:
-                temp = f" with a low of {int(f.low_temp)}"
+                temp = f" with a low of {int(f.low_temp)} celsius, {self._c_to_f(f.low_temp)} fahrenheit"
             
             text += f"{f.period_name}: {f.summary}{temp}. "
             
@@ -48,8 +54,16 @@ class Narrator:
     def build_full_report(self, loc: LocationInfo, current: CurrentConditions, forecast: List[WeatherForecast], alerts: List[WeatherAlert], sun_info: str = "") -> str:
         parts = []
         
+        
+        # Localize time
+        try:
+            tz = pytz.timezone(loc.timezone)
+            now = datetime.now(tz)
+        except Exception:
+            now = datetime.now()
+
         # Time string: "10 30 PM"
-        now_str = datetime.now().strftime("%I %M %p")
+        now_str = now.strftime("%I %M %p")
         # Remove leading zero from hour if desired, but TTS usually handles "09" fine. 
         # For cleaner TTS: 
         if now_str.startswith("0"): 

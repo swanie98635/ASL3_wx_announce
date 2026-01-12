@@ -6,7 +6,7 @@ location:
 
 voice:
   # Example utilizing pico2wave (sudo apt install libttspico-utils)
-  tts_command: 'pico2wave -w {file} "{text}"'
+  tts_command: 'pico2wave -w /tmp/temp.wav "{text}" && sox /tmp/temp.wav -r 8000 -c 1 {file}'
 
   nodes: 
     - "YOUR_NODE_NUMBER_HERE"

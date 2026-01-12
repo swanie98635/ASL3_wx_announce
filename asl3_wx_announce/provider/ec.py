@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List
-from env_canada import ECData
+from env_canada import ECWeather
 from ..models import LocationInfo, CurrentConditions, WeatherForecast, WeatherAlert, AlertSeverity
 from .base import WeatherProvider
 
@@ -10,8 +10,8 @@ class ECProvider(WeatherProvider):
         self.extra_zones = kwargs.get('alerts', {}).get('extra_zones', [])
 
     def _get_ec_data(self, lat, lon):
-        # ECData auto-selects station based on lat/lon
-        ec = ECData(coordinates=(lat, lon))
+        # ECWeather auto-selects station based on lat/lon
+        ec = ECWeather(coordinates=(lat, lon))
         ec.update()
         return ec
 
@@ -62,7 +62,7 @@ class ECProvider(WeatherProvider):
         for zone_id in self.extra_zones:
             if "/" in zone_id: # Basic check if it looks like EC station ID
                  try:
-                     ec_objects.append(ECData(station_id=zone_id))
+                     ec_objects.append(ECWeather(station_id=zone_id))
                  except Exception:
                      pass
 

@@ -18,3 +18,7 @@ asl3_wx_announce/config.yaml
 # OS
 .DS_Store
 Thumbs.db
+
+venv/
+.idea/
+

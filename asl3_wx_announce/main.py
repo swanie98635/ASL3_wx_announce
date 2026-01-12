@@ -43,7 +43,7 @@ def do_full_report(config):
     
     # Audio
     handler = AudioHandler(config)
-    wav_file = handler.generate_audio(text, "report.wav")
+    wav_file = handler.generate_audio(text, "report.gsm")
     
     # Play
     nodes = config.get('audio', {}).get('nodes', [])
@@ -78,7 +78,7 @@ def monitor_loop(config):
             if new_alerts:
                 logger.info(f"New Alerts detected: {len(new_alerts)}")
                 text = narrator.announce_alerts(new_alerts)
-                wav = handler.generate_audio(text, "alert.wav")
+                wav = handler.generate_audio(text, "alert.gsm")
                 handler.play_on_nodes(wav, nodes)
             
             # Cleanup expired from known

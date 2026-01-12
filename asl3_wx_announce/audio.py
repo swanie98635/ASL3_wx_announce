@@ -9,7 +9,8 @@ class AudioHandler:
         self.logger = logging.getLogger(__name__)
         # Default to echo if no TTS configured (just for safety)
         self.tts_template = config.get('voice', {}).get('tts_command', 'echo "{text}" > {file}')
-        self.output_dir = "/tmp/asl3_wx"
+        # Use standard Asterisk sounds directory
+        self.output_dir = "/var/lib/asterisk/sounds/asl3_wx_announce"
         os.makedirs(self.output_dir, exist_ok=True)
 
     def generate_audio(self, text: str, filename: str = "announcement.wav") -> str:
@@ -30,9 +31,8 @@ class AudioHandler:
             raise e
 
     def play_on_nodes(self, filepath: str, nodes: List[str]):
-        # Asterisk uses file path WITHOUT extension usually for play commands, 
-        # but rpt localplay might require full path or specific format. 
-        # Usually: rpt localplay <node> <path_no_ext>
+        # Asterisk uses file path WITHOUT extension usually for play commands.
+        # KD5FMU script uses absolute path successfully (e.g. /tmp/current-time)
         path_no_ext = os.path.splitext(filepath)[0]
         
         for node in nodes:

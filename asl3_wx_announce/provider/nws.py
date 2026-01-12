@@ -59,7 +59,7 @@ class NWSProvider(WeatherProvider):
         temp_c = props.get('temperature', {}).get('value')
         return CurrentConditions(
             temperature=temp_c if temp_c is not None else 0.0,
-            humidity=props.get('relativeHumidity', {}).get('value'),
+            humidity=int(round(props.get('relativeHumidity', {}).get('value'))) if props.get('relativeHumidity', {}).get('value') is not None else None,
             wind_speed=props.get('windSpeed', {}).get('value'),
             wind_direction=str(props.get('windDirection', {}).get('value')),
             description=props.get('textDescription', 'Unknown')
