@@ -1,11 +1,13 @@
 /# ASL3 Weather Announcer
 
-**ASL3 Weather Announcer** is a flexible, multi-country weather alert and reporting system designed for AllStarLink 3 (Asterisk) nodes.
+**ASL3 Weather Announcer** is a flexible, multi-country weather alert and reporting system designed for AllStarLink 3 (Asterisk) nodes.  This is for code is for informational purposes only, and it not intended to be used as the sole source for life and/or property safety notifications.  Use at your own risk.  There are many situations that might prevent this code from working with the reliability needed to protect life and property - including but not limited to loss of connectivity, power failure, malicious attacks on software and hardware, low accuracy location information, low accuracy time setting, etc.  Repeat - use at your own risk.  This works in both the US and Canada currently.  I am happy to delve into coding for other countries, as time and resources allow.
+
+I beleive this to be a legal radio transmission in both the US and Canada.  It uses official sources (National Weather Service in the US, Environment Canada and Alert Ready Canada for Canada).  The information provided is of general interest to the amateur radio community.  Severe weather can cause damage to an amateur operators equipment (ice and wind on antennas, for example). Some amatuers also serve as official weather observers or volunteer to assist local agencies to respond to emergencies - and advanced information about severe weather, civil emergencies is useful to make final preparations for responding.  The time of the sunrise and set, moon phases and solar flux are all information that assist in radio propagation - which is of vital interest to the amateur community.  These transmissions are not intended for the general public, although, given the transparent nature and spirit of amateur radio, these transmissions are not obscured in any manner.  Incidental reception by the general public is unavoidable.  The operator assumes all risk for what constitutes a legal transmission.  Operators are advised to configure announcements to provide content that is of general interest to the amateur radio community to avoid legal issues about the legality of  the transmission. 
 
 It provides **automated verbal announcements** for:
 *   **Active Weather Alerts**: Warnings, watches, and advisories as they are issued.
-*   **Civil Emergencies**: Amber Alerts, Nuclear events, etc. (via Alert Ready Canada / NWS).
-*   **Daily Reports**: Detailed forecast, current conditions, sunrise/sunset.
+*   **Civil Emergencies**: Amber Alerts, Chemical, Wildfire events, etc. (via Alert Ready Canada / NWS).
+*   **Daily Reports**: Detailed forecast, current conditions, sunrise/sunset, solar flux index
 *   **Startup Status**: System readiness and monitoring interval announcements.
 
 ## Features
@@ -20,13 +22,15 @@ It provides **automated verbal announcements** for:
 *   **Hourly Reports**:
     *   Configurable content: Conditions, Forecast, Astro (Sun/Moon), **Solar Flux Index**, System Status, **Exact Time**.
     *   **Time Accuracy Check**: Checks system clock against NIST/NRC and warns if drift > 60s.
+    *   Reports have silent breaks built in, to allow for emergency traffic to interupt.
 *   **Smart Location**:
     *   **Geospatial Filtering**: Uses CAP polygons to determine if *your* specific location is in the alert area.
     *   **Static**: Configurable fixed lat/lon.
 *   **Audio**:
     *   Generates prompts using `pico2wave` (or configurable TTS).
     *   Plays directly to local or remote ASL3 nodes via `rpt playback`.
-*   **Reliability**:
+    *   Callsigns are correctly appended for US operators operating in Canada, and Canadian operators operating in the US.
+*   ** System Reliability**:
     *   Systemd service integration (runs in dedicated `venv`).
     *   Robust "Wait for Asterisk" boot logic.
 
