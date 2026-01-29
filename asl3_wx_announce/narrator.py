@@ -159,6 +159,32 @@ class Narrator:
         country = loc.country_code.upper()
         region = loc.region.upper() if loc.region else ""
 
+        # Region Normalization Map (Full Name -> Abbrev)
+        # Providers (like reverse_geocoder) may return full names
+        region_map = {
+            # Canada
+            "BRITISH COLUMBIA": "BC", "ALBERTA": "AB", "SASKATCHEWAN": "SK", "MANITOBA": "MB",
+            "ONTARIO": "ON", "QUEBEC": "QC", "NEW BRUNSWICK": "NB", "NOVA SCOTIA": "NS",
+            "PRINCE EDWARD ISLAND": "PE", "NEWFOUNDLAND AND LABRADOR": "NL", "NEWFOUNDLAND": "NL",
+            "YUKON": "YT", "NORTHWEST TERRITORIES": "NT", "NUNAVUT": "NU",
+            # US (Common ones, extend as needed)
+            "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR", "CALIFORNIA": "CA",
+            "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE", "FLORIDA": "FL", "GEORGIA": "GA",
+            "HAWAII": "HI", "IDAHO": "ID", "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA",
+            "KANSAS": "KS", "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME", "MARYLAND": "MD",
+            "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN", "MISSISSIPPI": "MS", "MISSOURI": "MO",
+            "MONTANA": "MT", "NEBRASKA": "NE", "NEVADA": "NV", "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ",
+            "NEW MEXICO": "NM", "NEW YORK": "NY", "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH",
+            "OKLAHOMA": "OK", "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI", "SOUTH CAROLINA": "SC",
+            "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX", "UTAH": "UT", "VERMONT": "VT",
+            "VIRGINIA": "VA", "WASHINGTON": "WA", "WEST VIRGINIA": "WV", "WISCONSIN": "WI", "WYOMING": "WY",
+            "DISTRICT OF COLUMBIA": "DC"
+        }
+        
+        # Normalize Region
+        if region in region_map:
+            region = region_map[region]
+
         # Determine Origin (Simple heuristic: K,N,W,A=US; V,C=CA)
         origin_country = "US"
         # Callsigns starting with V, C, CY, VO, VY are Canadian
