@@ -4,22 +4,28 @@
 
 It provides **automated verbal announcements** for:
 *   **Active Weather Alerts**: Warnings, watches, and advisories as they are issued.
-*   **Daily Reports**: Detailed forecast, current conditions, sunrise/sunset, and moon phase.
-*   **Time Announcements**: Current local time at start of report.
+*   **Civil Emergencies**: Amber Alerts, Nuclear events, etc. (via Alert Ready Canada / NWS).
+*   **Daily Reports**: Detailed forecast, current conditions, sunrise/sunset.
+*   **Startup Status**: System readiness and monitoring interval announcements.
 
 ## Features
 
 *   **Multi-Provider Support**:
     *   🇺🇸 **USA**: Uses National Weather Service (NWS) API.
-    *   🇨🇦 **Canada**: Uses Environment Canada data.
-    *   *Extensible*: Plugin architecture allows adding more countries easily.
+    *   🇨🇦 **Canada**: Uses Environment Canada & NAAD Alert Ready (CAP).
+*   **Dynamic Polling**:
+    *   Polls every 10 minutes (configurable) normally.
+    *   **Automatically speeds up to 1 minute** during active Watches/Warnings.
+    *   Verbal announcements when polling interval changes.
 *   **Smart Location**:
-    *   **GPS/GNSS**: Automatically detects location using `gpsd`.
-    *   **Static**: Configurable fallback lat/lon.
-    *   **Auto-Zone**: Automatically monitors the correct County, Forecast Zone, and Fire Weather Zone for your location.
-*   **Customizable**:
-    *   **Extra Zones**: Manually monitor adjacent counties or specific stations (e.g., `VAC001` or `ON/s0000430`).
-    *   **Audio**: Works with `pico2wave`, `flite`, or any CLI TTS engine. Plays to multiple ASL3 nodes.
+    *   **Geospatial Filtering**: Uses CAP polygons to determine if *your* specific location is in the alert area.
+    *   **Static**: Configurable fixed lat/lon.
+*   **Audio**:
+    *   Generates prompts using `pico2wave` (or configurable TTS).
+    *   Plays directly to local or remote ASL3 nodes via `rpt playback`.
+*   **Reliability**:
+    *   Systemd service integration.
+    *   Robust "Wait for Asterisk" boot logic.
 
 ## Installation
 
@@ -30,64 +36,69 @@ sudo apt update
 sudo apt install python3-pip libttspico-utils gpsd sox
 ```
 
-### Install Package
-1.  Clone this repository to your scripts directory (e.g., `/etc/asterisk/scripts/`).
-2.  Install python dependencies:
-    ```bash
-    pip3 install -r requirements.txt
-    ```
+### Deploying Code
+The recommended install location is `/opt/asl3_wx_announce`.
+
+**Using the Deployment Script (Windows/PowerShell):**
+1.  Update `config.yaml` with your settings.
+2.  Run `.\deploy.ps1`.
+   *   This script bundles the code, uploads it via SSH, installs dependencies, and registers/restarts the systemd service.
+
+**Manual Installation (Linux):**
+1.  Copy files to `/opt/asl3_wx_announce`.
+2.  Install requirements: `pip3 install -r requirements.txt`.
+3.  Copy `asl3-wx.service` to `/etc/systemd/system/`.
+4.  Enable and start: `sudo systemctl enable --now asl3-wx`.
 
 ## Configuration
 
 Copy the example config:
 ```bash
-cp config.yaml.example config.yaml
+cp config.example.yaml config.yaml
 ```
 
 Edit `config.yaml`:
 ```yaml
 location:
-  type: auto         # Use 'auto' for GPS, or 'static' for fixed lat/lon
-  # latitude: 45.123
-  # longitude: -75.123
+  source: fixed
+  latitude: 46.8139
+  longitude: -71.2080
 
-voice:
-  tts_command: 'pico2wave -w {file} "{text}"'
-
-audio:
-  nodes: 
-    - "1966"         # Your Private Node
-    - "92394"        # Your Public Node
+station:
+  callsign: "N7XOB"
+  report_style: "quick" # 'quick' (2 days) or 'verbose' (7 days)
 
 alerts:
   min_severity: "Watch"
-  extra_zones:       # Optional: Monitor extra areas
-    - "VAC001"       # US County FIPS
-    - "ON/s0000430"  # Canadian Station ID
+  check_interval_minutes: 10
+  # Alert Ready (Canada)
+  enable_alert_ready: true
 ```
 
 ## Usage
 
 ### Test Full Report
-Announce current conditions, forecast, and time immediately:
+Trigger an immediate weather report:
 ```bash
-python3 -m asl3_wx_announce.main --config config.yaml --report
+cd /opt/asl3_wx_announce
+sudo python3 -m asl3_wx_announce.main --report
 ```
 
-### Run Alert Monitor
-Run in the background to announce *new* alerts as they happen:
+### Test Alert Simulation
+Simulate a full emergency alert sequence (Tone + Message) to test audio:
 ```bash
-python3 -m asl3_wx_announce.main --config config.yaml --monitor
+sudo python3 -m asl3_wx_announce.main --test-alert
 ```
 
-### Scheduled Hourly Reports
-To announce the weather every hour, add to `crontab -u asterisk -e`:
-```cron
-0 * * * * /usr/bin/python3 -m asl3_wx_announce.main --config /path/to/config.yaml --report
+### Service Status
+Check the background monitor:
+```bash
+sudo systemctl status asl3-wx
+sudo journalctl -u asl3-wx -f
 ```
 
 ## Contributing
-Pull requests are welcome! See `provider/` directory to add support for new countries.
+Pull requests are welcome!
 
 ## License
 MIT License
