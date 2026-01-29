@@ -7,6 +7,6 @@ location:
 voice:
   tts_command: "pico2wave -w {file} \"{text}\""
 audio:
-  nodes: ['62394']
+  nodes: ['your node here']
 alerts:
   check_interval_minutes: 15
