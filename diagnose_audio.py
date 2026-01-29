@@ -4,7 +4,7 @@ import sys
 import shutil
 
 # Configuration
-TEST_NODE = "62394" # User confirmed this node
+TEST_NODE = "your node here" # User confirmed this node
 TONE_FILE = "/tmp/test_tone.wav"
 FINAL_TONE_FILE = "/var/lib/asterisk/sounds/test_tone.wav"
 TTS_FILE = "/tmp/test_tts.wav"
