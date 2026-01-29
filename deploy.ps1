@@ -29,17 +29,66 @@ if ($LASTEXITCODE -ne 0) {
 
 # 3. Extract on remote server (Prompt #2)
 Write-Host "Extracting on remote server (You may be asked for your password again)..."
-# Changed to use sudo for /opt/ access
-# Also chown to user so they can run without sudo if desired, or keep root. 
 # Service runs as root usually.
-$REMOTE_CMD = "sudo mkdir -p ${REMOTE_PATH} && sudo tar -xvf /tmp/${TAR_FILE} -C ${REMOTE_PATH} && rm /tmp/${TAR_FILE} && sudo pip3 install --break-system-packages -r ${REMOTE_PATH}/requirements.txt && sudo cp ${REMOTE_PATH}/asl3-wx.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable asl3-wx && sudo systemctl restart asl3-wx"
+# 1. Create directory
+# 2. Extract
+# 3. Create venv if not exists
+# 4. Install requirements in venv
+# 5. Setup service
+$REMOTE_CMD = "sudo mkdir -p ${REMOTE_PATH} && sudo tar -xvf /tmp/${TAR_FILE} -C ${REMOTE_PATH} && rm /tmp/${TAR_FILE} && sudo python3 -m venv ${REMOTE_PATH}/venv && sudo ${REMOTE_PATH}/venv/bin/pip install -r ${REMOTE_PATH}/requirements.txt && sudo cp ${REMOTE_PATH}/asl3-wx.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable asl3-wx && sudo systemctl restart asl3-wx"
 ssh ${REMOTE_USER}@${REMOTE_HOST} $REMOTE_CMD
 
 # 4. Cleanup local artifact
 Remove-Item $TAR_FILE
 
-Write-Host "Deployment Complete!" -ForegroundColor Green
-Write-Host "To run the code:"
-Write-Host "  ssh ${REMOTE_USER}@${REMOTE_HOST}"
-Write-Host "  cd ${REMOTE_PATH}"
-Write-Host "  sudo python3 -m asl3_wx_announce.main"
+Write-Host "Deployment Complete! The 'asl3-wx' service is running in the background." -ForegroundColor Green
+Write-Host "To check status/logs:"
+Write-Host "  ssh ${REMOTE_USER}@${REMOTE_HOST} 'sudo systemctl status asl3-wx'"
+Write-Host "  ssh ${REMOTE_USER}@${REMOTE_HOST} 'sudo journalctl -u asl3-wx -f'"
+Write-Host "To stop:"
+Write-Host "  ssh ${REMOTE_USER}@${REMOTE_HOST} 'sudo systemctl stop asl3-wx'"
+
+# --- Display Config Summary ---
+Write-Host ""
+Write-Host "--- Configuration Summary ---" -ForegroundColor Yellow
+
+$configContent = Get-Content config.yaml -Raw
+
+# Helper function for regex extraction
+function Get-ConfigValue {
+    param ($pattern, $default = "Unknown")
+    if ($configContent -match $pattern) { return $Matches[1].Trim('"').Trim("'") }
+    return $default
+}
+
+$callsign = Get-ConfigValue "callsign:\s*(.*)"
+$check_int = Get-ConfigValue "check_interval_minutes:\s*(\d+)"
+$active_int = Get-ConfigValue "active_check_interval_minutes:\s*(\d+)"
+$timezone = Get-ConfigValue "timezone:\s*(.*)"
+$hourly_enabled = Get-ConfigValue "hourly_report:\s*\n\s*enabled:\s*(true|false)" "false"
+$hourly_minute = Get-ConfigValue "minute:\s*(\d+)"
+
+Write-Host "Callsign:          $callsign"
+Write-Host "Timezone:          $timezone"
+Write-Host "Check Interval:    $check_int minutes (Normal)"
+Write-Host "Active Interval:   $active_int minutes (During Alerts)"
+
+if ($hourly_enabled -eq "true") {
+    Write-Host "Hourly Report:     Enabled (at minute $hourly_minute)"
+    
+    # Parse Content flags
+    $content_keys = "time", "time_error", "conditions", "forecast", "forecast_verbose", "astro", "solar_flux", "status", "code_source"
+    $enabled_content = @()
+    foreach ($key in $content_keys) {
+        if ($configContent -match "${key}:\s*true") {
+            $enabled_content += $key
+        }
+    }
+    $content_str = $enabled_content -join ", "
+    Write-Host "Hourly Content:    $content_str"
+}
+else {
+    Write-Host "Hourly Report:     Disabled"
+}
+Write-Host "-----------------------------"
+Write-Host ""

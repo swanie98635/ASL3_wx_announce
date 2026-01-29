@@ -1,4 +1,4 @@
-# ASL3 Weather Announcer
+/# ASL3 Weather Announcer
 
 **ASL3 Weather Announcer** is a flexible, multi-country weather alert and reporting system designed for AllStarLink 3 (Asterisk) nodes.
 
@@ -9,14 +9,17 @@ It provides **automated verbal announcements** for:
 *   **Startup Status**: System readiness and monitoring interval announcements.
 
 ## Features
-
+    
 *   **Multi-Provider Support**:
     *   🇺🇸 **USA**: Uses National Weather Service (NWS) API.
     *   🇨🇦 **Canada**: Uses Environment Canada & NAAD Alert Ready (CAP).
 *   **Dynamic Polling**:
     *   Polls every 10 minutes (configurable) normally.
-    *   **Automatically speeds up to 1 minute** during active Watches/Warnings.
+    *   **Automatically speeds up** (configurable, e.g., 1 min) during active Watches/Warnings.
     *   Verbal announcements when polling interval changes.
+*   **Hourly Reports**:
+    *   Configurable content: Conditions, Forecast, Astro (Sun/Moon), **Solar Flux Index**, System Status, **Exact Time**.
+    *   **Time Accuracy Check**: Checks system clock against NIST/NRC and warns if drift > 60s.
 *   **Smart Location**:
     *   **Geospatial Filtering**: Uses CAP polygons to determine if *your* specific location is in the alert area.
     *   **Static**: Configurable fixed lat/lon.
@@ -24,7 +27,7 @@ It provides **automated verbal announcements** for:
     *   Generates prompts using `pico2wave` (or configurable TTS).
     *   Plays directly to local or remote ASL3 nodes via `rpt playback`.
 *   **Reliability**:
-    *   Systemd service integration.
+    *   Systemd service integration (runs in dedicated `venv`).
     *   Robust "Wait for Asterisk" boot logic.
 
 ## Installation
@@ -33,8 +36,9 @@ It provides **automated verbal announcements** for:
 On your ASL3 server (Debian/Raspbian):
 ```bash
 sudo apt update
-sudo apt install python3-pip libttspico-utils gpsd sox
+sudo apt install python3-pip libttspico-utils gpsd sox chrony
 ```
+*(Note: `chrony` is recommended for time accuracy checks)*
 
 ### Deploying Code
 The recommended install location is `/opt/asl3_wx_announce`.
@@ -42,13 +46,14 @@ The recommended install location is `/opt/asl3_wx_announce`.
 **Using the Deployment Script (Windows/PowerShell):**
 1.  Update `config.yaml` with your settings.
 2.  Run `.\deploy.ps1`.
-   *   This script bundles the code, uploads it via SSH, installs dependencies, and registers/restarts the systemd service.
+   *   This script bundles the code, uploads it via SSH, creates a Python virtual environment, installs dependencies, and registers/restarts the systemd service.
 
 **Manual Installation (Linux):**
 1.  Copy files to `/opt/asl3_wx_announce`.
-2.  Install requirements: `pip3 install -r requirements.txt`.
-3.  Copy `asl3-wx.service` to `/etc/systemd/system/`.
-4.  Enable and start: `sudo systemctl enable --now asl3-wx`.
+2.  Create venv: `python3 -m venv venv`
+3.  Install requirements: `venv/bin/pip install -r requirements.txt`.
+4.  Copy `asl3-wx.service` to `/etc/systemd/system/`.
+5.  Enable and start: `sudo systemctl enable --now asl3-wx`.
 
 ## Configuration
 
@@ -57,7 +62,7 @@ Copy the example config:
 cp config.example.yaml config.yaml
 ```
 
-Edit `config.yaml`:
+Edit `config.yaml` (See `config.example.yaml` for full options):
 ```yaml
 location:
   source: fixed
@@ -66,13 +71,23 @@ location:
 
 station:
   callsign: "N7XOB"
-  report_style: "quick" # 'quick' (2 days) or 'verbose' (7 days)
+  hourly_report:
+    enabled: true
+    minute: 0
+    content:
+      time: true
+      time_error: true # Check clock accuracy
+      conditions: true
+      forecast: true
+      forecast_verbose: false
+      astro: true
+      solar_flux: true # NOAA SWPC Data
+      status: true
 
 alerts:
   min_severity: "Watch"
   check_interval_minutes: 10
-  # Alert Ready (Canada)
-  enable_alert_ready: true
+  active_check_interval_minutes: 1 # Faster polling during events
 ```
 
 ## Usage

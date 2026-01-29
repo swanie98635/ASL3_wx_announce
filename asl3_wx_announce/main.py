@@ -3,6 +3,7 @@ import yaml
 import time
 import logging
 import subprocess
+import sys
 from datetime import datetime
 from .models import AlertSeverity
 from .location import LocationService
@@ -53,11 +54,10 @@ def setup_logging(config):
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-def do_full_report(config):
+def do_full_report(config, report_config=None):
     loc_svc = LocationService(config)
     lat, lon = loc_svc.get_coordinates()
     
-    # Provider
     # Provider
     prov_code = config.get('location', {}).get('provider')
     provider = get_provider_instance(CountryCode=prov_code, Lat=lat, Lon=lon, Config=config)
@@ -101,7 +101,7 @@ def do_full_report(config):
     
     # Narrate
     narrator = Narrator(config)
-    text = narrator.build_full_report(loc_info, conditions, forecast, alerts, sun_info)
+    text = narrator.build_full_report(loc_info, conditions, forecast, alerts, sun_info, report_config=report_config)
     logger.info(f"Report Text: {text}")
     
     # Audio
@@ -152,8 +152,23 @@ def monitor_loop(config):
             info = provider.get_location_info(lat, lon)
             city_name = info.city if info.city else "Unknown Location"
             interval_mins = int(normal_interval / 60)
+            active_mins = config.get('alerts', {}).get('active_check_interval_minutes', 1)
             
-            startup_text = narrator.get_startup_message(city_name, interval_mins)
+            # Determine Source Name
+            source_name = "National Weather Service" # Default fallback
+            prov_class = provider.__class__.__name__
+            
+            if prov_class == 'ECProvider':
+                source_name = "Environment Canada"
+                if ar_provider: 
+                    source_name += " and National Alert Ready System"
+            elif prov_class == 'NWSProvider':
+                 source_name = "National Weather Service"
+
+            # Get Hourly Config
+            hourly_cfg = config.get('station', {}).get('hourly_report', {})
+            
+            startup_text = narrator.get_startup_message(info, interval_mins, active_mins, nodes, source_name, hourly_config=hourly_cfg)
             logger.info(f"Startup Announcement: {startup_text}")
             
             # Generate and Play
@@ -172,12 +187,26 @@ def monitor_loop(config):
         now_dt = datetime.fromtimestamp(now)
         
         # 1. Hourly Report Check
-        if do_hourly:
-            # Check if it is the top of the hour (minute 0) and we haven't played yet this hour
-            if now_dt.minute == 0 and now_dt.hour != last_report_hour:
-                logger.info("Triggering Hourly Weather Report...")
+        # Check config struct
+        hr_config = config.get('station', {}).get('hourly_report', {})
+        # Handle legacy boolean if present (though we updated config)
+        if isinstance(hr_config, bool):
+            hr_enabled = hr_config
+            hr_minute = 0
+            hr_content = None # Use default
+        else:
+            hr_enabled = hr_config.get('enabled', False)
+            hr_minute = hr_config.get('minute', 0)
+            hr_content = hr_config.get('content') # dict or None
+
+        if hr_enabled:
+            # Check if minute matches and we haven't run this hour yet
+            # Note: We track last_report_hour. If minute is 15, we run at 10:15.
+            # We need to ensure we don't run multiple times in the same hour.
+            if now_dt.minute == hr_minute and now_dt.hour != last_report_hour:
+                logger.info(f"Triggering Hourly Weather Report (Scheduled for XX:{hr_minute:02d})...")
                 try:
-                    do_full_report(config)
+                    do_full_report(config, report_config=hr_content)
                     last_report_hour = now_dt.hour
                 except Exception as e:
                     logger.error(f"Hourly Report Failed: {e}")
@@ -220,14 +249,16 @@ def monitor_loop(config):
                      if rank > max_severity_rank:
                          max_severity_rank = rank
                          
-                # If Watch (2) or Higher, set interval to 1 minute
+                # If Watch (2) or Higher, set interval to configured active interval
                 new_interval = normal_interval
                 active_threat = False
                 
                 if max_severity_rank >= 2:
-                    new_interval = 60
+                    # Default to 1 minute if not set
+                    active_mins = config.get('alerts', {}).get('active_check_interval_minutes', 1)
+                    new_interval = active_mins * 60
                     active_threat = True
-                    logger.info("Active Watch/Warning/Critical detected. Requesting 1-minute polling.")
+                    logger.info(f"Active Watch/Warning/Critical detected. Requesting {active_mins}-minute polling.")
                 
                 # Check for Interval Change
                 if new_interval != current_interval:
@@ -334,13 +365,21 @@ def main():
     
     args = parser.parse_args()
     config = load_config(args.config)
-    setup_logging(config) # Call the placeholder setup_logging
-
+    # setup_logging(config) - removed double call, typically called once? 
+    # Ah, setup_logging was called in my previous version.
+    
     if args.test_alert:
         do_test_alert(config)
         sys.exit(0)
     elif args.report:
-        do_full_report(config)
+        # Pass the hourly report content config if available so manual run matches scheduled run
+        hr_config = config.get('station', {}).get('hourly_report', {})
+        if isinstance(hr_config, bool):
+             content = None
+        else:
+             content = hr_config.get('content')
+             
+        do_full_report(config, report_config=content)
         sys.exit(0)
     elif args.monitor:
         monitor_loop(config)

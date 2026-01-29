@@ -9,9 +9,19 @@ location:
 station:
   # Station ID for announcements
   callsign: "MYCALL"
-  # Report Style: 'verbose' (Full sentences) or 'quick' (Short summary + High/Low)
-  report_style: "quick"
-  hourly_report: true # Play full report at the top of every hour
+  hourly_report:
+    enabled: true
+    minute: 0 # Run at this minute past the hour (0-59)
+    content:
+      time: true             # Time check
+      time_error: true       # System clock offset check
+      conditions: true       # Current Conditions
+      forecast: true         # Forecast
+      forecast_verbose: false # true = Full forecast, false = Quick forecast
+      astro: true            # Sunrise/Sunset/Moon
+      solar_flux: true       # Solar Flux Index (SFI)
+      status: true           # System Status
+      code_source: true      # Credits
 
 voice:
   # Example utilizing pico2wave (sudo apt install libttspico-utils)
@@ -23,6 +33,8 @@ voice:
 
 alerts:
   check_interval_minutes: 10
+  # Active Check Interval (when Severe Alerts are present)
+  active_check_interval_minutes: 1
   # Minimum Severity to Report. Options:
   # - "Advisory", "Watch", "Warning", "Critical"
   min_severity: "Watch"

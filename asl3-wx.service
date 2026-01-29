@@ -6,7 +6,7 @@ After=network.target sound.target asterisk.service
 Type=simple
 User=root
 WorkingDirectory=/opt/asl3_wx_announce
-ExecStart=/usr/bin/python3 -m asl3_wx_announce.main --monitor
+ExecStart=/opt/asl3_wx_announce/venv/bin/python -m asl3_wx_announce.main --monitor
 Restart=always
 RestartSec=60
 
