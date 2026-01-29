@@ -146,6 +146,85 @@ class Narrator:
         return f"The system clock differs from {agency_name} official time by {offset_str} seconds."
 
 
+    def get_full_callsign(self, loc: LocationInfo) -> str:
+        """
+        Determines the portable suffix based on location.
+        Returns the formatted string e.g. "N7XOB Portable V E 3"
+        """
+        callsign = self.config.get('station', {}).get('callsign')
+        if not callsign or not loc.country_code:
+            return callsign or "Station"
+            
+        upper_call = callsign.upper()
+        country = loc.country_code.upper()
+        region = loc.region.upper() if loc.region else ""
+
+        # Determine Origin (Simple heuristic: K,N,W,A=US; V,C=CA)
+        origin_country = "US"
+        # Callsigns starting with V, C, CY, VO, VY are Canadian
+        if upper_call[0] in ['V', 'C'] or upper_call.startswith('VE') or upper_call.startswith('VA') or upper_call.startswith('VO') or upper_call.startswith('VY'):
+            origin_country = "CA"
+            
+        suffix = ""
+        
+        # 1. Canadian Station in US -> "Portable [Zone]"
+        if origin_country == "CA" and country == "US":
+            # US Call Zones
+            zones = {
+                '1': ['CT', 'MA', 'ME', 'NH', 'RI', 'VT'],
+                '2': ['NJ', 'NY'],
+                '3': ['DE', 'DC', 'MD', 'PA'],
+                '4': ['AL', 'FL', 'GA', 'KY', 'NC', 'SC', 'TN', 'VA'],
+                '5': ['AR', 'LA', 'MS', 'NM', 'OK', 'TX'],
+                '6': ['CA', 'HI'], # HI is KH6, often treated as 6 for this context
+                '7': ['AZ', 'ID', 'MT', 'NV', 'OR', 'UT', 'WA', 'WY', 'AK'], # AK is KL7
+                '8': ['MI', 'OH', 'WV'],
+                '9': ['IL', 'IN', 'WI'],
+                '0': ['CO', 'IA', 'KS', 'MN', 'MO', 'NE', 'ND', 'SD']
+            }
+            
+            zone_num = None
+            for z, states in zones.items():
+                if region in states:
+                    zone_num = z
+                    break
+            
+            if zone_num:
+                suffix = f" Portable N {zone_num}"
+            else:
+                suffix = " Portable U S"
+
+        # 2. US Station in CA -> "Portable [Prefix] [Zone]"
+        elif origin_country == "US" and country == "CA":
+            # Canadian Prefixes Map
+            provinces = {
+                'BC': 'V E 7', 'AB': 'V E 6', 'SK': 'V E 5', 'MB': 'V E 4',
+                'ON': 'V E 3', 'QC': 'V E 2', 'NB': 'V E 9', 'NS': 'V E 1',
+                'PE': 'V Y 2', 'NL': 'V O 1', 'YT': 'V Y 1', 'NT': 'V E 8', 
+                'NU': 'V Y 0'
+            }
+            
+            # Fallback mappings for standard zones if precise prefix unknown
+            fallback_map = {
+                'BC': '7', 'AB': '6', 'SK': '5', 'MB': '4', 'ON': '3', 'QC': '2',
+                'NB': '1', 'NS': '1', 'PE': '1', 'NL': '1', 'YT': '1', 'NT': '8', 'NU': '0' 
+            }
+            
+            prefix_str = provinces.get(region)
+            if not prefix_str:
+                # Try fallback generic VE#
+                digit = fallback_map.get(region)
+                if digit:
+                    prefix_str = f"V E {digit}"
+            
+            if prefix_str:
+                suffix = f" Portable {prefix_str}"
+            else:
+                suffix = " Portable Canada"
+
+        return f"{callsign}{suffix}"
+
+
     def build_full_report(self, loc: LocationInfo, current: CurrentConditions, forecast: List[WeatherForecast], alerts: List[WeatherAlert], sun_info: str = "", report_config: dict = None) -> str:
         parts = []
         
@@ -195,22 +274,10 @@ class Narrator:
         region_full = states_map.get(region_clean, loc.region) 
         
         # Intro callsign logic
-        callsign = self.config.get('station', {}).get('callsign')
-        full_callsign = callsign or ""
+        callsign_raw = self.config.get('station', {}).get('callsign')
         
-        if callsign:
-            # Cross-border logic
-            suffix = ""
-            upper_call = callsign.upper()
-            country = loc.country_code.upper() if loc.country_code else ""
-            
-            # Simplified portable logic for brevity
-            if country == 'CA' and not upper_call.startswith('V'):
-                 suffix = " Portable Canada" # Fallback/Simple
-            elif country == 'US' and upper_call.startswith('V'):
-                 suffix = " Portable U S"
-            
-            full_callsign = f"{callsign}{suffix}"
+        if callsign_raw:
+            full_callsign = self.get_full_callsign(loc)
             parts.append(f"CQ CQ CQ. This is {full_callsign} with the updated weather report.")
         else:
             parts.append("Good day.")
@@ -332,7 +399,7 @@ class Narrator:
 
 
     def get_startup_message(self, loc: LocationInfo, interval: int, active_interval: int, nodes: List[str], source_name: str, hourly_config: dict = None) -> str:
-        callsign = self.config.get('station', {}).get('callsign', 'Station')
+        callsign = self.get_full_callsign(loc)
         city = loc.city if loc.city else "Unknown Location"
         
         node_str = ""
