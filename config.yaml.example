@@ -1,0 +1,26 @@
+location:
+  type: auto # or static
+  # latitude: 45.4215
+  # longitude: -75.6972
+   # Source: gpsd or fixed
+  source: gpsd
+  # Fixed location (used if source is 'fixed' or gpsd fails)
+  fixed:
+    lat: 44.0
+    lon: -73.0
+  provider: CA  # CA for env_canada, US for nws
+
+voice:
+  # Example utilizing pico2wave (sudo apt install libttspico-utils)
+  tts_command: 'pico2wave -w {file} "{text}"'
+
+  nodes: 
+    - "YOUR_NODE_NUMBER_HERE"
+
+alerts:
+  check_interval_minutes: 10
+  min_severity: "Watch"
+  # Optional: List of NWS Zones/Counties to monitor in addition to current location
+  # extra_zones:
+  #   - "VAC001"
+  #   - "MDZ013"

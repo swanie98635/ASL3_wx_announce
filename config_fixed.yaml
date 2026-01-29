@@ -1,0 +1,12 @@
+location:
+  source: fixed
+  fixed:
+    lat: 45.4215
+    lon: -75.6972
+  provider: CA
+voice:
+  tts_command: "pico2wave -w {file} \"{text}\""
+audio:
+  nodes: ['62394']
+alerts:
+  check_interval_minutes: 15

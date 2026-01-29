@@ -1,0 +1,30 @@
+/home/admin/asl3_wx_announce/asl3_wx_announce/provider/ec.py:15: RuntimeWarning: coroutine 'ECWeather.update' was never awaited
+  ec.update()
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+INFO:asl3_wx_announce.provider.ec:DEBUG: ec.metadata type: <class 'env_canada.ec_weather.MetaData'>
+INFO:asl3_wx_announce.provider.ec:DEBUG: ec.metadata content: MetaData(attribution='Data provided by Environment Canada', timestamp=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), station=None, location=None, cache_returned_on_update=0, last_update_error='')
+INFO:asl3_wx:Resolved Location: Unknown, Canada (CA)
+/home/admin/asl3_wx_announce/asl3_wx_announce/provider/ec.py:86: RuntimeWarning: coroutine 'ECWeather.update' was never awaited
+  ec.update()
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+INFO:asl3_wx:Report Text: Good day. The time is 8 06 PM. This is the automated weather report for Unknown. Current conditions for Unknown, Canada. The temperature is 0 degrees celsius, 32 degrees fahrenheit. Conditions are Unknown. 
+INFO:asl3_wx_announce.audio:Generating audio: pico2wave -w /tmp/asl3_wx/report.ul "Good day. The time is 8 06 PM. This is the automated weather report for Unknown. Current conditions for Unknown, Canada. The temperature is 0 degrees celsius, 32 degrees fahrenheit. Conditions are Unknown. "
+Cannot open output wave file
+ERROR:asl3_wx_announce.audio:TTS Failed: Command 'pico2wave -w /tmp/asl3_wx/report.ul "Good day. The time is 8 06 PM. This is the automated weather report for Unknown. Current conditions for Unknown, Canada. The temperature is 0 degrees celsius, 32 degrees fahrenheit. Conditions are Unknown. "' returned non-zero exit status 1.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 109, in <module>
+    main()
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 102, in main
+    do_full_report(config)
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 46, in do_full_report
+    wav_file = handler.generate_audio(text, "report.ul")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/audio.py", line 43, in generate_audio
+    raise e
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/audio.py", line 32, in generate_audio
+    subprocess.run(cmd, shell=True, check=True)
+  File "/usr/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command 'pico2wave -w /tmp/asl3_wx/report.ul "Good day. The time is 8 06 PM. This is the automated weather report for Unknown. Current conditions for Unknown, Canada. The temperature is 0 degrees celsius, 32 degrees fahrenheit. Conditions are Unknown. "' returned non-zero exit status 1.

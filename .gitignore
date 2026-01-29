@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Config (Keep local secrets private)
+config.yaml
+asl3_wx_announce/config.yaml
+
+# Audio Output
+*.wav
+/tmp/asl3_wx/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

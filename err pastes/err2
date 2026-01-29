@@ -1,0 +1,11 @@
+admin@node92394:~/asl3_wx_announce $ sudo python3 -m asl3_wx_announce.main --report
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 260, in <module>
+    main()
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 246, in main
+    setup_logging(config) # Call the placeholder setup_logging
+    ^^^^^^^^^^^^^
+NameError: name 'setup_logging' is not defined
+admin@node92394:~/asl3_wx_announce $

@@ -1,0 +1,58 @@
+location:
+  source: fixed # Valid values: 'fixed', 'gpsd', 'auto'
+  latitude: 0.0000 
+  longitude: 0.0000
+  # city: "Your City" 
+  timezone: "America/New_York"
+  # provider: US # Optional: force US or CA
+
+station:
+  # Station ID for announcements
+  callsign: "MYCALL"
+  # Report Style: 'verbose' (Full sentences) or 'quick' (Short summary + High/Low)
+  report_style: "quick"
+  hourly_report: true # Play full report at the top of every hour
+
+voice:
+  # Example utilizing pico2wave (sudo apt install libttspico-utils)
+  tts_command: 'pico2wave -w {file} "{text}"'
+
+  nodes: 
+    - "1000"
+    - "2000"
+
+alerts:
+  check_interval_minutes: 10
+  # Minimum Severity to Report. Options:
+  # - "Advisory", "Watch", "Warning", "Critical"
+  min_severity: "Watch"
+  
+  # Attention Signal (2-second alternating tone) before Warnings/Critical alerts
+  alert_tone:
+    enabled: true
+    min_severity: "Warning"
+  
+  # Optional: List of NWS Zones/Counties to monitor in addition to current location
+  # extra_zones:
+  #   - "VAC001"
+
+  # ==========================================
+  # CANADA SETTINGS
+  # ==========================================
+  # Enable separate scraping of the NAAD System for Civil/Non-Weather events
+  enable_alert_ready: true
+  
+  # --- Environment Canada Event Filters (See full list in defaults) ---
+  ca_events:
+    - "Tornado Warning"
+    - "Severe Thunderstorm Warning"
+    # ... (Add monitored events here)
+
+  # ==========================================
+  # UNITED STATES SETTINGS
+  # ==========================================
+  # Filter specific US event types (Case Insensitive Partial Match)
+  us_events:
+    - "Tornado Warning"
+    - "Severe Thunderstorm Warning"
+    # ... (Add monitored events here)

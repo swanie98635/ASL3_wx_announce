@@ -1,0 +1,14 @@
+[Unit]
+Description=ASL3 Weather Announcer Monitor
+After=network.target sound.target asterisk.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/asl3_wx_announce
+ExecStart=/usr/bin/python3 -m asl3_wx_announce.main --monitor
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
