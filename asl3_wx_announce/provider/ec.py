@@ -9,11 +9,24 @@ class ECProvider(WeatherProvider):
         self.points_cache = {}
         self.extra_zones = kwargs.get('alerts', {}).get('extra_zones', [])
         self.allowed_events = kwargs.get('alerts', {}).get('ca_events', [])
+        # Factory passes the full config dict as kwargs
+        station_cfg = kwargs.get('station', {})
+        self.language = station_cfg.get('announce_language', 'en')
+
+        # Also support direct language kwarg if passed explicitly
+        if 'language' in kwargs:
+             self.language = kwargs['language']
+             
+        # Normalize for EC library (accepts 'english' or 'french')
+        if self.language in ['fr', 'french']:
+            self.language = 'french'
+        else:
+            self.language = 'english' 
 
     def _get_ec_data(self, lat, lon):
         # ECWeather auto-selects station based on lat/lon
         import asyncio
-        ec = ECWeather(coordinates=(lat, lon))
+        ec = ECWeather(coordinates=(lat, lon), language=self.language)
         asyncio.run(ec.update())
         return ec
 

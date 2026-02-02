@@ -42,7 +42,33 @@ class AudioHandler:
                 if os.path.exists(raw_path):
                     os.remove(raw_path)
 
-                cmd = self.tts_template.format(file=raw_path, text=segment)
+                # Prepare language flag (simplistic handling for pico2wave)
+                lang = self.config.get('station', {}).get('announce_language', 'en')
+                lang_arg = ""
+                # Only inject if using standard pico2wave command and specifically French
+                if 'pico2wave' in self.tts_template and lang == 'fr':
+                     lang_arg = "-l fr-FR"
+                elif 'pico2wave' in self.tts_template and lang == 'en':
+                     lang_arg = "-l en-US" # explicit default
+
+                # Inject into template if it supports it, or just append to command construction
+                # But self.tts_template is a string like 'pico2wave -w {file} "{text}"'
+                # We need to hack it in or assume user configured it.
+                # BETTER APPROACH:
+                # If tts_command is default, we can modify it.
+                # If user provided custom command, we assume they handle it or we don't touch it.
+                
+                final_cmd = self.tts_template.format(file=raw_path, text=segment)
+                
+                # Injection hack for pico2wave if using default-ish config
+                if lang == 'fr' and 'pico2wave' in final_cmd and '-l ' not in final_cmd:
+                    final_cmd = final_cmd.replace('pico2wave', 'pico2wave -l fr-FR')
+                elif lang == 'en' and 'pico2wave' in final_cmd and '-l ' not in final_cmd:
+                    # Optional: explicit English
+                     final_cmd = final_cmd.replace('pico2wave', 'pico2wave -l en-US')
+
+                cmd = final_cmd
+
                 self.logger.info(f"Generating segment {i}: {cmd}")
                 subprocess.run(cmd, shell=True, check=True)
                 
