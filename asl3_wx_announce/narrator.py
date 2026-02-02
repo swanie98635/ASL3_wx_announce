@@ -80,7 +80,7 @@ class Narrator:
             
         return text
 
-    def announce_alerts(self, alerts: List[WeatherAlert]) -> str:
+    def announce_alerts(self, alerts: List[WeatherAlert], loc: LocationInfo = None) -> str:
         if not alerts:
             return "There are no active weather alerts."
         
@@ -110,9 +110,15 @@ class Narrator:
             text += item_text
             
         # Add sign-off to alerts
-        callsign = self.config.get('station', {}).get('callsign')
-        if callsign:
-             text += f" {callsign} Clear."
+        if loc:
+             full_callsign = self.get_full_callsign(loc)
+             text += f" {full_callsign} Clear."
+        else:
+             # Fallback if no loc passed (though we should always pass it)
+             callsign = self.config.get('station', {}).get('callsign')
+             if callsign: text += f" {callsign} Clear."
+             
+        return text
              
         return text
 
@@ -157,14 +163,14 @@ class Narrator:
             
         upper_call = callsign.upper()
         country = loc.country_code.upper()
-        region = loc.region.upper() if loc.region else ""
+        region = loc.region.upper().strip() if loc.region else ""
 
         # Region Normalization Map (Full Name -> Abbrev)
         # Providers (like reverse_geocoder) may return full names
         region_map = {
             # Canada
             "BRITISH COLUMBIA": "BC", "ALBERTA": "AB", "SASKATCHEWAN": "SK", "MANITOBA": "MB",
-            "ONTARIO": "ON", "QUEBEC": "QC", "NEW BRUNSWICK": "NB", "NOVA SCOTIA": "NS",
+            "ONTARIO": "ON", "QUEBEC": "QC", "QUÉBEC": "QC", "NEW BRUNSWICK": "NB", "NOVA SCOTIA": "NS",
             "PRINCE EDWARD ISLAND": "PE", "NEWFOUNDLAND AND LABRADOR": "NL", "NEWFOUNDLAND": "NL",
             "YUKON": "YT", "NORTHWEST TERRITORIES": "NT", "NUNAVUT": "NU",
             # US (Common ones, extend as needed)
@@ -184,6 +190,11 @@ class Narrator:
         # Normalize Region
         if region in region_map:
             region = region_map[region]
+
+        # Handle accented characters if not caught by map (though we added QUÉBEC above)
+        # This catch-all helps if there are other variations
+        if region == "QUÉBEC":
+             region = "QC"
 
         # Determine Origin (Simple heuristic: K,N,W,A=US; V,C=CA)
         origin_country = "US"
@@ -348,7 +359,7 @@ class Narrator:
         parts.append(f"This is the automated weather report for {loc.city}, {region_full}. Break. [PAUSE]")
         
         if alerts:
-             parts.append("Please be advised: " + self.announce_alerts(alerts) + " Break. [PAUSE]")
+             parts.append("Please be advised: " + self.announce_alerts(alerts, loc) + " Break. [PAUSE]")
              
         # Conditions
         if report_config.get('conditions', True):
@@ -396,8 +407,12 @@ class Narrator:
             
         return " ".join(parts)
 
-    def get_test_preamble(self) -> str:
-        callsign = self.config.get('station', {}).get('callsign', 'Amateur Radio')
+    def get_test_preamble(self, loc: LocationInfo = None) -> str:
+        if loc:
+            callsign = self.get_full_callsign(loc)
+        else:
+            callsign = self.config.get('station', {}).get('callsign', 'Amateur Radio')
+            
         return (
             f"{callsign} Testing. The following is an alerting test of an automated alerting notification and message. "
             "Do not take any action as a result of the following message. "
@@ -412,8 +427,12 @@ class Narrator:
             "This is only a test. No action is required."
         )
 
-    def get_test_postamble(self) -> str:
-        callsign = self.config.get('station', {}).get('callsign', 'Amateur Radio')
+    def get_test_postamble(self, loc: LocationInfo = None) -> str:
+        if loc:
+            callsign = self.get_full_callsign(loc)
+        else:
+            callsign = self.config.get('station', {}).get('callsign', 'Amateur Radio')
+            
         return (
             f"{callsign} reminds you this was a test. "
             "Do not take action. Repeat - take no action. "
@@ -525,8 +544,12 @@ class Narrator:
         
         return msg
 
-    def get_interval_change_message(self, interval_mins: int, active_alerts: bool) -> str:
-        callsign = self.config.get('station', {}).get('callsign', 'Station')
+    def get_interval_change_message(self, interval_mins: int, active_alerts: bool, loc: LocationInfo = None) -> str:
+        if loc:
+             callsign = self.get_full_callsign(loc)
+        else:
+             callsign = self.config.get('station', {}).get('callsign', 'Station')
+             
         if active_alerts:
              return f"{callsign} Notification. The monitoring interval is being changed to {interval_mins} minute{'s' if interval_mins!=1 else ''} due to active alerts in the area."
         else:

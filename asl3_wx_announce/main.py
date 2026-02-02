@@ -138,6 +138,10 @@ def monitor_loop(config):
              logger.info("AlertReady Provider Enabled.")
         except Exception as e:
              logger.error(f"Failed to load AlertReadyProvider: {e}")
+             
+    # Pre-fetch location info for portable callsign logic
+    info = provider.get_location_info(lat, lon)
+    logger.info(f"Monitor Location: {info.city}, {info.region}")
 
     logger.info(f"Starting Alert Monitor... (Hourly Reports: {do_hourly})")
     
@@ -149,7 +153,7 @@ def monitor_loop(config):
         try:
             # Startup Announcement
             # Resolve initial location info for city name
-            info = provider.get_location_info(lat, lon)
+            # info variable is already fetched above
             city_name = info.city if info.city else "Unknown Location"
             interval_mins = int(normal_interval / 60)
             active_mins = config.get('alerts', {}).get('active_check_interval_minutes', 1)
@@ -266,7 +270,7 @@ def monitor_loop(config):
                     current_interval = new_interval
                     
                     mins = int(current_interval / 60)
-                    msg = narrator.get_interval_change_message(mins, active_threat)
+                    msg = narrator.get_interval_change_message(mins, active_threat, loc=info)
                     logger.info(f"Announcing Interval Change: {msg}")
                     
                     try:
@@ -298,7 +302,7 @@ def monitor_loop(config):
                 # Announce new items
                 if new_alerts:
                     logger.info(f"New Alerts detected: {len(new_alerts)}")
-                    text = narrator.announce_alerts(new_alerts)
+                    text = narrator.announce_alerts(new_alerts, loc=info)
                     wavs = handler.generate_audio(text, "alert.gsm")
                     handler.play_on_nodes(wavs, nodes)
                 
@@ -325,9 +329,16 @@ def do_test_alert(config):
         logger.error("No nodes configured for playback.")
         return
 
+    # Resolve Location for Callsign Logic
+    loc_svc = LocationService(config)
+    lat, lon = loc_svc.get_coordinates()
+    prov_code = config.get('location', {}).get('provider')
+    provider = get_provider_instance(CountryCode=prov_code, Lat=lat, Lon=lon, Config=config)
+    loc_info = provider.get_location_info(lat, lon)
+
     # 1. Preamble
     logger.info("Playing Preamble...")
-    preamble_text = narrator.get_test_preamble()
+    preamble_text = narrator.get_test_preamble(loc=loc_info)
     files = handler.generate_audio(preamble_text, "test_preamble.gsm")
     handler.play_on_nodes(files, nodes)
     
@@ -350,7 +361,7 @@ def do_test_alert(config):
     
     # 5. Postamble
     logger.info("Playing Postamble...")
-    post_text = narrator.get_test_postamble()
+    post_text = narrator.get_test_postamble(loc=loc_info)
     files = handler.generate_audio(post_text, "test_postamble.gsm")
     handler.play_on_nodes(files, nodes)
     
