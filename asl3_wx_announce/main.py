@@ -43,7 +43,7 @@ def do_full_report(config):
     
     # Audio
     handler = AudioHandler(config)
-    wav_file = handler.generate_audio(text, "report.gsm")
+    wav_file = handler.generate_audio(text, "report.ul")
     
     # Play
     nodes = config.get('audio', {}).get('nodes', [])
@@ -54,17 +54,20 @@ def monitor_loop(config):
     known_alerts = set()
     
     loc_svc = LocationService(config)
-    lat, lon = loc_svc.get_coordinates()
-    prov_code = config.get('location', {}).get('provider')
-    provider = get_provider_instance(CountryCode=prov_code, Lat=lat, Lon=lon, Config=config)
     narrator = Narrator()
     handler = AudioHandler(config)
     nodes = config.get('audio', {}).get('nodes', [])
+    prov_code = config.get('location', {}).get('provider')
 
     logger.info("Starting Alert Monitor...")
     
     while True:
         try:
+            # Update location each interval for mobile nodes
+            lat, lon = loc_svc.get_coordinates()
+            # Re-init provider with new coords
+            provider = get_provider_instance(CountryCode=prov_code, Lat=lat, Lon=lon, Config=config)
+            
             alerts = provider.get_alerts(lat, lon)
             current_ids = {a.id for a in alerts}
             
@@ -78,7 +81,7 @@ def monitor_loop(config):
             if new_alerts:
                 logger.info(f"New Alerts detected: {len(new_alerts)}")
                 text = narrator.announce_alerts(new_alerts)
-                wav = handler.generate_audio(text, "alert.gsm")
+                wav = handler.generate_audio(text, "alert.ul")
                 handler.play_on_nodes(wav, nodes)
             
             # Cleanup expired from known
