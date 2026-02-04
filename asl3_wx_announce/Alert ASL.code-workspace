@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../CSV_Lat_Long"
+		}
+	],
+	"settings": {
+		"powershell.cwd": "CSV_Lat_Long"
+	}
+}

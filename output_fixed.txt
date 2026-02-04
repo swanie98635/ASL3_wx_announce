@@ -1,0 +1,11 @@
+--- Checking Reverse Geocoder for 46.8139, -71.208 ---
+Loading formatted geocoded file...
+RG Result: [{'lat': '46.81228', 'lon': '-71.21454', 'name': 'Quebec', 'admin1': 'Quebec', 'admin2': '', 'cc': 'CA'}]
+--- Testing Region: 'Quebec' ---
+Result: N7XOB Portable V E 2
+--- Testing Region: 'QuΘbec' ---
+Result: N7XOB Portable V E 2
+--- Testing Region: 'QC' ---
+Result: N7XOB Portable V E 2
+--- Testing Region: 'QC ' ---
+Result: N7XOB Portable V E 2

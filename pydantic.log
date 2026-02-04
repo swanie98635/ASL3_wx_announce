@@ -1,0 +1,23 @@
+INFO:asl3_wx_announce.provider.ec:DEBUG: ec.metadata type: <class 'env_canada.ec_weather.MetaData'>
+INFO:asl3_wx_announce.provider.ec:DEBUG: ec.metadata content: MetaData(attribution='Data provided by Environment Canada', timestamp=datetime.datetime(2026, 1, 26, 20, 1, 29, tzinfo=tzutc()), station='Gatineau Airport', location='Gatineau', cache_returned_on_update=0, last_update_error='')
+INFO:asl3_wx:Resolved Location: Unknown, Canada (CA)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 109, in <module>
+    main()
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 102, in main
+    do_full_report(config)
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/main.py", line 31, in do_full_report
+    conditions = provider.get_conditions(lat, lon)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/asl3_wx_announce/asl3_wx_announce/provider/ec.py", line 46, in get_conditions
+    return CurrentConditions(
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/admin/.local/lib/python3.11/site-packages/pydantic/main.py", line 250, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for CurrentConditions
+description
+  Input should be a valid string [type=string_type, input_value={'label': 'Condition', 'value': 'Light Snow'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_type

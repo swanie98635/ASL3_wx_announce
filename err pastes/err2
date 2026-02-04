@@ -1,0 +1,65 @@
+admin@node92394:/opt/asl3_wx_announce $ sudo python3 -m asl3_wx_announce.main --report
+Loading formatted geocoded file...
+INFO:asl3_wx_announce.provider.ec:DEBUG: ec.metadata type: <class 'env_canada.ec_weather.MetaData'>
+INFO:asl3_wx_announce.provider.ec:DEBUG: ec.metadata content: MetaData(attribution='Data provided by Environment Canada', timestamp=datetime.datetime(2026, 1, 29, 17, 5, 6, tzinfo=tzutc()), station="Quebec Lesage Int'l Airport", location='Québec', cache_returned_on_update=0, last_update_error='')
+INFO:asl3_wx:Using Config Timezone: America/Toronto
+INFO:asl3_wx:Resolved Location: Quebec, Quebec (CA)
+INFO:asl3_wx:Report Text: CQ CQ CQ. This is N7XOB Portable V E 2 with the updated weather report. The time is 12 05 PM. This is the automated weather report for Quebec, Quebec. Break. [PAUSE] Current conditions for Quebec, Quebec. The temperature is -15 degrees celsius. Conditions are Partly Cloudy, with winds at 22 kilometers per hour. Break. [PAUSE] Here is the forecast. Thursday: Increasing cloudiness this afternoon. Wind southwest 20 km/h. High minus 13. Wind chill minus 24 this afternoon. UV index 1 or low.. High -13. Break. [PAUSE] Thursday night: Periods of light snow. Wind west 20 km/h gusting to 40. Low minus 17. Wind chill near minus 27.. High -17. Break. [PAUSE] Friday: Periods of light snow ending in the morning then mainly cloudy with 30 percent chance of flurries. Wind west 20 km/h gusting to 40. High minus 13. Wind chill minus 27 in the morning and minus 19 in the afternoon. UV index 1 or low.. High -13. Break. [PAUSE] Friday night: Clear. Low minus 19.. High -19. Break. [PAUSE]  This concludes the weather report for Quebec. N7XOB Portable V E 2 Clear.
+INFO:asl3_wx_announce.audio:Generating segment 0: pico2wave -w /tmp/asl3_wx/raw_report_0.wav "CQ CQ CQ. This is N7XOB Portable V E 2 with the updated weather report. The time is 12 05 PM. This is the automated weather report for Quebec, Quebec. Break."
+INFO:asl3_wx_announce.audio:Converting audio: sox /tmp/asl3_wx/raw_report_0.wav -r 8000 -c 1 -t gsm /tmp/asl3_wx/asl3_wx_report_0.gsm
+INFO:asl3_wx_announce.audio:Moving to sounds dir: sudo mv /tmp/asl3_wx/asl3_wx_report_0.gsm /usr/share/asterisk/sounds/en/asl3_wx_report_0.gsm
+INFO:asl3_wx_announce.audio:Generating segment 1: pico2wave -w /tmp/asl3_wx/raw_report_1.wav "Current conditions for Quebec, Quebec. The temperature is -15 degrees celsius. Conditions are Partly Cloudy, with winds at 22 kilometers per hour. Break."
+INFO:asl3_wx_announce.audio:Converting audio: sox /tmp/asl3_wx/raw_report_1.wav -r 8000 -c 1 -t gsm /tmp/asl3_wx/asl3_wx_report_1.gsm
+INFO:asl3_wx_announce.audio:Moving to sounds dir: sudo mv /tmp/asl3_wx/asl3_wx_report_1.gsm /usr/share/asterisk/sounds/en/asl3_wx_report_1.gsm
+INFO:asl3_wx_announce.audio:Generating segment 2: pico2wave -w /tmp/asl3_wx/raw_report_2.wav "Here is the forecast. Thursday: Increasing cloudiness this afternoon. Wind southwest 20 km/h. High minus 13. Wind chill minus 24 this afternoon. UV index 1 or low.. High -13. Break."
+INFO:asl3_wx_announce.audio:Converting audio: sox /tmp/asl3_wx/raw_report_2.wav -r 8000 -c 1 -t gsm /tmp/asl3_wx/asl3_wx_report_2.gsm
+INFO:asl3_wx_announce.audio:Moving to sounds dir: sudo mv /tmp/asl3_wx/asl3_wx_report_2.gsm /usr/share/asterisk/sounds/en/asl3_wx_report_2.gsm
+INFO:asl3_wx_announce.audio:Generating segment 3: pico2wave -w /tmp/asl3_wx/raw_report_3.wav "Thursday night: Periods of light snow. Wind west 20 km/h gusting to 40. Low minus 17. Wind chill near minus 27.. High -17. Break."
+INFO:asl3_wx_announce.audio:Converting audio: sox /tmp/asl3_wx/raw_report_3.wav -r 8000 -c 1 -t gsm /tmp/asl3_wx/asl3_wx_report_3.gsm
+INFO:asl3_wx_announce.audio:Moving to sounds dir: sudo mv /tmp/asl3_wx/asl3_wx_report_3.gsm /usr/share/asterisk/sounds/en/asl3_wx_report_3.gsm
+INFO:asl3_wx_announce.audio:Generating segment 4: pico2wave -w /tmp/asl3_wx/raw_report_4.wav "Friday: Periods of light snow ending in the morning then mainly cloudy with 30 percent chance of flurries. Wind west 20 km/h gusting to 40. High minus 13. Wind chill minus 27 in the morning and minus 19 in the afternoon. UV index 1 or low.. High -13. Break."
+INFO:asl3_wx_announce.audio:Converting audio: sox /tmp/asl3_wx/raw_report_4.wav -r 8000 -c 1 -t gsm /tmp/asl3_wx/asl3_wx_report_4.gsm
+INFO:asl3_wx_announce.audio:Moving to sounds dir: sudo mv /tmp/asl3_wx/asl3_wx_report_4.gsm /usr/share/asterisk/sounds/en/asl3_wx_report_4.gsm
+INFO:asl3_wx_announce.audio:Generating segment 5: pico2wave -w /tmp/asl3_wx/raw_report_5.wav "Friday night: Clear. Low minus 19.. High -19. Break."
+INFO:asl3_wx_announce.audio:Converting audio: sox /tmp/asl3_wx/raw_report_5.wav -r 8000 -c 1 -t gsm /tmp/asl3_wx/asl3_wx_report_5.gsm
+INFO:asl3_wx_announce.audio:Moving to sounds dir: sudo mv /tmp/asl3_wx/asl3_wx_report_5.gsm /usr/share/asterisk/sounds/en/asl3_wx_report_5.gsm
+INFO:asl3_wx_announce.audio:Generating segment 6: pico2wave -w /tmp/asl3_wx/raw_report_6.wav "This concludes the weather report for Quebec. N7XOB Portable V E 2 Clear."
+INFO:asl3_wx_announce.audio:Converting audio: sox /tmp/asl3_wx/raw_report_6.wav -r 8000 -c 1 -t gsm /tmp/asl3_wx/asl3_wx_report_6.gsm
+INFO:asl3_wx_announce.audio:Moving to sounds dir: sudo mv /tmp/asl3_wx/asl3_wx_report_6.gsm /usr/share/asterisk/sounds/en/asl3_wx_report_6.gsm
+INFO:asl3_wx_announce.audio:Segment 0 duration: 14.84s
+INFO:asl3_wx_announce.audio:Playing segment 0 on 1966: sudo /usr/sbin/asterisk -rx "rpt playback 1966 asl3_wx_report_0"
+INFO:asl3_wx_announce.audio:Playing segment 0 on 62394: sudo /usr/sbin/asterisk -rx "rpt playback 62394 asl3_wx_report_0"
+INFO:asl3_wx_announce.audio:Pausing 5s for unkey...
+INFO:asl3_wx_announce.audio:Segment 1 duration: 12.992s
+INFO:asl3_wx_announce.audio:Playing segment 1 on 1966: sudo /usr/sbin/asterisk -rx "rpt playback 1966 asl3_wx_report_1"
+INFO:asl3_wx_announce.audio:Playing segment 1 on 62394: sudo /usr/sbin/asterisk -rx "rpt playback 62394 asl3_wx_report_1"
+INFO:asl3_wx_announce.audio:Pausing 5s for unkey...
+INFO:asl3_wx_announce.audio:Segment 2 duration: 19.196s
+INFO:asl3_wx_announce.audio:Playing segment 2 on 1966: sudo /usr/sbin/asterisk -rx "rpt playback 1966 asl3_wx_report_2"
+INFO:asl3_wx_announce.audio:Playing segment 2 on 62394: sudo /usr/sbin/asterisk -rx "rpt playback 62394 asl3_wx_report_2"
+INFO:asl3_wx_announce.audio:Pausing 5s for unkey...
+INFO:asl3_wx_announce.audio:Segment 3 duration: 14.732s
+INFO:asl3_wx_announce.audio:Playing segment 3 on 1966: sudo /usr/sbin/asterisk -rx "rpt playback 1966 asl3_wx_report_3"
+INFO:asl3_wx_announce.audio:Playing segment 3 on 62394: sudo /usr/sbin/asterisk -rx "rpt playback 62394 asl3_wx_report_3"
+INFO:asl3_wx_announce.audio:Pausing 5s for unkey...
+INFO:asl3_wx_announce.audio:Segment 4 duration: 22.54s
+INFO:asl3_wx_announce.audio:Playing segment 4 on 1966: sudo /usr/sbin/asterisk -rx "rpt playback 1966 asl3_wx_report_4"
+INFO:asl3_wx_announce.audio:Playing segment 4 on 62394: sudo /usr/sbin/asterisk -rx "rpt playback 62394 asl3_wx_report_4"
+INFO:asl3_wx_announce.audio:Pausing 5s for unkey...
+INFO:asl3_wx_announce.audio:Segment 5 duration: 7.26s
+INFO:asl3_wx_announce.audio:Playing segment 5 on 1966: sudo /usr/sbin/asterisk -rx "rpt playback 1966 asl3_wx_report_5"
+INFO:asl3_wx_announce.audio:Playing segment 5 on 62394: sudo /usr/sbin/asterisk -rx "rpt playback 62394 asl3_wx_report_5"
+INFO:asl3_wx_announce.audio:Pausing 5s for unkey...
+INFO:asl3_wx_announce.audio:Segment 6 duration: 6.16s
+INFO:asl3_wx_announce.audio:Playing segment 6 on 1966: sudo /usr/sbin/asterisk -rx "rpt playback 1966 asl3_wx_report_6"
+INFO:asl3_wx_announce.audio:Playing segment 6 on 62394: sudo /usr/sbin/asterisk -rx "rpt playback 62394 asl3_wx_report_6"
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/asl3_wx_announce/asl3_wx_announce/main.py", line 376, in <module>
+    main()
+  File "/opt/asl3_wx_announce/asl3_wx_announce/main.py", line 369, in main
+    sys.exit(0)
+    ^^^
+NameError: name 'sys' is not defined
+admin@node92394:/opt/asl3_wx_announce $
