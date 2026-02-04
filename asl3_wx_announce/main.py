@@ -37,7 +37,7 @@ def do_full_report(config):
     sun_info = astro.get_astro_info(loc_info)
     
     # Narrate
-    narrator = Narrator()
+    narrator = Narrator(config)
     text = narrator.build_full_report(loc_info, conditions, forecast, alerts, sun_info)
     logger.info(f"Report Text: {text}")
     
@@ -54,7 +54,7 @@ def monitor_loop(config):
     known_alerts = set()
     
     loc_svc = LocationService(config)
-    narrator = Narrator()
+    narrator = Narrator(config)
     handler = AudioHandler(config)
     nodes = config.get('audio', {}).get('nodes', [])
     prov_code = config.get('location', {}).get('provider')

@@ -4,10 +4,14 @@ location:
   # longitude: -75.6972
   # provider: CA # Optional: force US or CA
 
+language: en # Options: en, fr
+
 voice:
   # Example utilizing pico2wave (sudo apt install libttspico-utils)
-  tts_command: 'pico2wave -w /tmp/temp.wav "{text}" && sox /tmp/temp.wav -r 8000 -c 1 {file}'
+  # {lang} is replaced by 'en-US' or 'fr-FR'
+  tts_command: 'pico2wave -l {lang} -w /tmp/temp.wav "{text}" && sox /tmp/temp.wav -r 8000 -c 1 {file}'
 
+audio:
   nodes: 
     - "YOUR_NODE_NUMBER_HERE"
 

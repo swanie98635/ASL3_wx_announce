@@ -8,10 +8,13 @@ class ECProvider(WeatherProvider):
     def __init__(self, **kwargs):
         self.points_cache = {}
         self.extra_zones = kwargs.get('alerts', {}).get('extra_zones', [])
+        
+        # Map config language code (fr/en) to ECWeather expected parameter (french/english)
+        self.language = 'french' if kwargs.get('language') == 'fr' else 'english'
 
     def _get_ec_data(self, lat, lon):
         # ECWeather auto-selects station based on lat/lon
-        ec = ECWeather(coordinates=(lat, lon))
+        ec = ECWeather(coordinates=(lat, lon), language=self.language)
         ec.update()
         return ec
 
@@ -62,7 +65,7 @@ class ECProvider(WeatherProvider):
         for zone_id in self.extra_zones:
             if "/" in zone_id: # Basic check if it looks like EC station ID
                  try:
-                     ec_objects.append(ECWeather(station_id=zone_id))
+                     ec_objects.append(ECWeather(station_id=zone_id, language=self.language))
                  except Exception:
                      pass
 

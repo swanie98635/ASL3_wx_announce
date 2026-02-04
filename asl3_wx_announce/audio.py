@@ -19,8 +19,16 @@ class AudioHandler:
         # Simple cleanup?
         if os.path.exists(filepath):
             os.remove(filepath)
+
+        # Resolve language code
+        lang_cfg = self.config.get('language', 'en')
+        lang_map = {
+            'en': 'en-US',
+            'fr': 'fr-FR'
+        }
+        lang_code = lang_map.get(lang_cfg, 'en-US')
             
-        cmd = self.tts_template.format(file=filepath, text=text)
+        cmd = self.tts_template.format(file=filepath, text=text, lang=lang_code)
         self.logger.info(f"Generating audio: {cmd}")
         
         try:
