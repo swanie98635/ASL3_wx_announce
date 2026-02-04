@@ -1,0 +1,5 @@
+https://github.com/KD5FMU/Play-Audio-Locally
+https://github.com/KD5FMU/Time-Weather-Announce
+https://github.com/KD5FMU/Play-Audio-ASL3-Node
+https://github.com/KD5FMU/Convert-Audio-File-to-ulaw
+https://github.com/KD5FMU/Saytime-Weather-FIX-for-HamVoip

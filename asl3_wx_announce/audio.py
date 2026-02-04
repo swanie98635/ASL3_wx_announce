@@ -31,12 +31,26 @@ class AudioHandler:
             raise e
 
     def play_on_nodes(self, filepath: str, nodes: List[str]):
-        # Asterisk uses file path WITHOUT extension usually for play commands.
-        # KD5FMU script uses absolute path successfully (e.g. /tmp/current-time)
+        # Asterisk usually wants paths relative to the sounds directory if they are inside it.
+        # e.g. "rpt localplay <node> asl3_wx_announce/report"
+        
         path_no_ext = os.path.splitext(filepath)[0]
         
+        # Standard sounds root
+        sounds_root = "/var/lib/asterisk/sounds/"
+        
+        if path_no_ext.startswith(sounds_root):
+            # Strip root: /var/lib/asterisk/sounds/dir/file -> dir/file
+            play_path = path_no_ext[len(sounds_root):]
+            # Ensure no leading slash
+            if play_path.startswith("/"):
+                play_path = play_path[1:]
+        else:
+            # Outside standard dir, use absolute
+            play_path = path_no_ext
+        
         for node in nodes:
-            asterisk_cmd = f'asterisk -rx "rpt localplay {node} {path_no_ext}"'
+            asterisk_cmd = f'asterisk -rx "rpt localplay {node} {play_path}"'
             self.logger.info(f"Playing on {node}: {asterisk_cmd}")
             try:
                 subprocess.run(asterisk_cmd, shell=True, check=True)
