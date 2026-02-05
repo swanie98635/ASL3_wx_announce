@@ -17,9 +17,13 @@ It provides **automated verbal announcements** for:
     *   **GPS/GNSS**: Automatically detects location using `gpsd`.
     *   **Static**: Configurable fallback lat/lon.
     *   **Auto-Zone**: Automatically monitors the correct County, Forecast Zone, and Fire Weather Zone for your location.
+*   **Multi-Language Support** (New!):
+    *   **Languages**: Full support for **English** and **French** (added 2/4/26).
+    *   **Extensible**: Designed to easily adapt for **Spanish, German, and Italian**. 
+    *   *Contributors Welcome*: We are looking for fluent speakers to help refine translations for new languages.
 *   **Customizable**:
     *   **Extra Zones**: Manually monitor adjacent counties or specific stations (e.g., `VAC001` or `ON/s0000430`).
-    *   **Audio**: Works with `pico2wave`, `flite`, or any CLI TTS engine. Plays to multiple ASL3 nodes.
+    *   **Audio**: Defaults to `pico2wave` — a lightweight, nimble offline TTS engine that sounds clear and runs efficiently on Raspberry Pi. Also works with `flite` or other CLI engines.
 
 ## Installation
 
@@ -51,8 +55,10 @@ location:
   # latitude: 45.123
   # longitude: -75.123
 
+language: en         # Options: en, fr
+
 voice:
-  tts_command: 'pico2wave -w {file} "{text}"'
+  tts_command: 'pico2wave -l {lang} -w {file} "{text}"'
 
 audio:
   nodes: 
