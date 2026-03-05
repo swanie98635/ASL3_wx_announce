@@ -32,14 +32,23 @@ def get_provider_class(lat: float, lon: float) -> Type[WeatherProvider]:
         raise e
 
 def get_provider_instance(CountryCode: str = None, Lat: float = None, Lon: float = None, Config: dict = None) -> WeatherProvider:
+    # Always prioritize actual geographic coordinates if available
+    if Lat is not None and Lon is not None:
+        try:
+            cls = get_provider_class(Lat, Lon)
+            return cls(**(Config or {}))
+        except Exception as e:
+            # Fall back to explicit country code if reverse lookup fails
+            if CountryCode:
+                print(f"Failed to lookup provider via coordinates, falling back to explicitly configured CountryCode: {CountryCode}")
+                pass
+            else:
+                raise e
+
     if CountryCode:
         cls = _PROVIDERS.get(CountryCode.upper())
         if not cls:
             raise ValueError(f"Unknown country code: {CountryCode}")
-        return cls(**(Config or {}))
-    
-    if Lat is not None and Lon is not None:
-        cls = get_provider_class(Lat, Lon)
         return cls(**(Config or {}))
     
     raise ValueError("Must provide either CountryCode or Lat/Lon to select provider.")

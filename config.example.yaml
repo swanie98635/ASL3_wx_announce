@@ -2,6 +2,7 @@ location:
   source: fixed # Valid values: 'fixed', 'gpsd', 'auto'
   latitude: 0.0000 
   longitude: 0.0000
+  update_interval_minutes: 0 # 0 = disabled (startup only), > 0 = refresh every X minutes
   # city: "Your City" 
   timezone: "America/New_York"
   # provider: US # Optional: force US or CA
