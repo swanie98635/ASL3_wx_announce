@@ -16,7 +16,7 @@ class Narrator:
             'period_fmt': "{period}: {summary}{temp}. ",
             'no_alerts': "There are no active weather alerts.",
             'alerts_intro': "There are {count} active weather alerts. ",
-            'alert_item': "A {title} is in effect until {expires}. ",
+            'alert_item': "A {title} is in effect from {effective} until {expires}. ",
             'greeting': "Good day. The time is {time}.",
             'intro_city': "This is the automated weather report for {city}.",
             'alert_advise': "Please be advised: ",
@@ -33,7 +33,7 @@ class Narrator:
             'period_fmt': "{period}: {summary}{temp}. ",
             'no_alerts': "Il n'y a aucune alerte météo en vigueur.",
             'alerts_intro': "Il y a {count} alertes météo en vigueur. ",
-            'alert_item': "Un {title} est en vigueur jusqu'à {expires}. ",
+            'alert_item': "Un {title} est en vigueur du {effective} au {expires}. ",
             'greeting': "Bonjour. Il est {time}.",
             'intro_city': "Ceci est le bulletin météo automatisé pour {city}.",
             'alert_advise': "Veuillez noter : ",
@@ -51,6 +51,35 @@ class Narrator:
     def _t(self, key, **kwargs):
         tpl = self.s.get(key, "")
         return tpl.format(**kwargs)
+
+    def _fmt_alert_dt(self, dt: datetime, tz) -> str:
+        """Format a datetime as 'Monday, March 10 at 3 45 PM' in local time."""
+        try:
+            local_dt = dt.astimezone(tz)
+        except Exception:
+            local_dt = dt
+
+        days_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        days_fr = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+        months_en = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        months_fr = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+
+        day_idx = local_dt.weekday()
+        month_idx = local_dt.month - 1
+        day_num = local_dt.day
+
+        if self.lang == 'fr':
+            # French: lundi 10 mars à 15 heures 45
+            day_name = days_fr[day_idx]
+            month_name = months_fr[month_idx]
+            time_str = local_dt.strftime("%H heures %M")
+            return f"{day_name} {day_num} {month_name} à {time_str}"
+        else:
+            # English: Monday, March 10 at 3 45 PM
+            day_name = days_en[day_idx]
+            month_name = months_en[month_idx]
+            time_str = local_dt.strftime("%I %M %p").lstrip("0").strip()
+            return f"{day_name}, {month_name} {day_num} at {time_str}"
 
     def announce_conditions(self, loc: LocationInfo, current: CurrentConditions) -> str:
         wind = ""
@@ -80,17 +109,24 @@ class Narrator:
             
         return text
 
-    def announce_alerts(self, alerts: List[WeatherAlert]) -> str:
+    def announce_alerts(self, alerts: List[WeatherAlert], timezone: str = None) -> str:
         if not alerts:
             return self._t('no_alerts')
-        
+
+        try:
+            tz = pytz.timezone(timezone) if timezone else pytz.utc
+        except Exception:
+            tz = pytz.utc
+
         text = self._t('alerts_intro', count=len(alerts))
         for a in alerts:
-            # Need locale specific time format?
-            # Alerts usually have specific expiration.
-            expires_str = a.expires.strftime(self.s.get('time_fmt', "%I %M %p"))
-            text += self._t('alert_item', title=a.title, expires=expires_str)
+            start = a.onset if a.onset else a.effective
+            end = a.ends if a.ends else a.expires
             
+            start_str = self._fmt_alert_dt(start, tz)
+            end_str = self._fmt_alert_dt(end, tz)
+            text += self._t('alert_item', title=a.title, effective=start_str, expires=end_str)
+
         return text
 
     def build_full_report(self, loc: LocationInfo, current: CurrentConditions, forecast: List[WeatherForecast], alerts: List[WeatherAlert], sun_info: str = "") -> str:
@@ -111,7 +147,7 @@ class Narrator:
         parts.append(self._t('intro_city', city=loc.city))
         
         if alerts:
-             parts.append(self._t('alert_advise') + self.announce_alerts(alerts))
+            parts.append(self._t('alert_advise') + self.announce_alerts(alerts, timezone=loc.timezone))
              
         parts.append(self.announce_conditions(loc, current))
         parts.append(self.announce_forecast(forecast))

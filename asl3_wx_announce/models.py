@@ -18,12 +18,16 @@ class WeatherAlert(BaseModel):
     instruction: Optional[str] = None
     area_description: str
     effective: datetime
+    onset: Optional[datetime] = None
     expires: datetime
+    ends: Optional[datetime] = None
     
     @property
     def is_active(self) -> bool:
-        now = datetime.now(self.expires.tzinfo)
-        return self.effective <= now < self.expires
+        start = self.onset if self.onset else self.effective
+        end = self.ends if self.ends else self.expires
+        now = datetime.now(end.tzinfo)
+        return start <= now < end
 
 class WeatherForecast(BaseModel):
     period_name: str  # e.g., "Today", "Tonight", "Monday"

@@ -139,7 +139,9 @@ class NWSProvider(WeatherProvider):
                 instruction=props.get('instruction'),
                 area_description=props.get('areaDesc', ''),
                 effective=parse_date(props['effective']),
-                expires=parse_date(props['expires'])
+                onset=parse_date(props.get('onset')) if props.get('onset') else None,
+                expires=parse_date(props['expires']),
+                ends=parse_date(props.get('ends')) if props.get('ends') else None
             ))
             
         return alerts

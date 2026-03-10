@@ -126,7 +126,8 @@ def monitor_loop(config):
             # Announce new items
             if new_alerts:
                 logger.info(f"New Alerts detected: {len(new_alerts)}")
-                text = narrator.announce_alerts(new_alerts)
+                loc_info = provider.get_location_info(lat, lon)
+                text = narrator.announce_alerts(new_alerts, timezone=loc_info.timezone)
                 wav = handler.generate_audio(text, "alert.ul")
                 handler.play_on_nodes(wav, nodes)
             
