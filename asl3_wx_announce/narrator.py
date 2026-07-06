@@ -105,7 +105,7 @@ class Narrator:
                 temp = f" Low {int(val)}."
             
             # Always prefer short_summary if available for the new style
-            condition = f.short_summary if f.short_summary else f.summary
+            condition = getattr(f, 'short_summary', None) or f.summary
                 
             text += f"{f.period_name}: {condition}.{temp} Break. [PAUSE] "
             
