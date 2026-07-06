@@ -1,56 +1,14 @@
 from datetime import datetime
+from typing import List
+import subprocess
+import re
 import pytz
-from typing import List, Dict
 from .models import LocationInfo, CurrentConditions, WeatherForecast, WeatherAlert
 
 class Narrator:
-    STRINGS = {
-        'en': {
-            'wind_fmt': ", with winds from the {dir} at {kph} kilometers per hour, or {mph} miles per hour",
-            'current_intro': "Current conditions for {city}, {region}.",
-            'temp_fmt': "The temperature is {temp_c} degrees celsius, {temp_f} degrees fahrenheit.",
-            'conditions_fmt': "Conditions are {desc}{wind}.",
-            'forecast_intro': "Here is the forecast. ",
-            'high_fmt': " with a high of {c} celsius, {f} fahrenheit",
-            'low_fmt': " with a low of {c} celsius, {f} fahrenheit",
-            'period_fmt': "{period}: {summary}{temp}. ",
-            'no_alerts': "There are no active weather alerts.",
-            'alerts_intro': "There are {count} active weather alerts. ",
-            'alert_item': "A {title} is in effect from {effective} until {expires}. ",
-            'greeting': "Good day. The time is {time}.",
-            'intro_city': "This is the automated weather report for {city}.",
-            'alert_advise': "Please be advised: ",
-            'time_fmt': "%I %M %p"
-        },
-        'fr': {
-            'wind_fmt': ", avec des vents du {dir} à {kph} kilomètres à l'heure",
-            'current_intro': "Conditions actuelles pour {city}, {region}.",
-            'temp_fmt': "La température est de {temp_c} degrés Celsius, {temp_f} degrés Fahrenheit.",
-            'conditions_fmt': "Les conditions sont {desc}{wind}.",
-            'forecast_intro': "Voici les prévisions. ",
-            'high_fmt': " avec un maximum de {c} Celsius, {f} Fahrenheit",
-            'low_fmt': " avec un minimum de {c} Celsius, {f} Fahrenheit",
-            'period_fmt': "{period}: {summary}{temp}. ",
-            'no_alerts': "Il n'y a aucune alerte météo en vigueur.",
-            'alerts_intro': "Il y a {count} alertes météo en vigueur. ",
-            'alert_item': "Un {title} est en vigueur du {effective} au {expires}. ",
-            'greeting': "Bonjour. Il est {time}.",
-            'intro_city': "Ceci est le bulletin météo automatisé pour {city}.",
-            'alert_advise': "Veuillez noter : ",
-            'time_fmt': "%H heures %M"
-        }
-    }
-
-    def __init__(self, config: Dict):
-        self.lang = config.get('language', 'en')
-        self.s = self.STRINGS.get(self.lang, self.STRINGS['en'])
-
-    def _c_to_f(self, temp_c: float) -> int:
-        return int((temp_c * 9/5) + 32)
-    
-    def _t(self, key, **kwargs):
-        tpl = self.s.get(key, "")
-        return tpl.format(**kwargs)
+    def __init__(self, config: dict = None):
+        self.config = config or {}
+        self.lang = self.config.get('language', 'en')
 
     def _fmt_alert_dt(self, dt: datetime, tz) -> str:
         """Format a datetime as 'Monday, March 10 at 3 45 PM' in local time."""
@@ -82,77 +40,406 @@ class Narrator:
             return f"{day_name}, {month_name} {day_num} at {time_str}"
 
     def announce_conditions(self, loc: LocationInfo, current: CurrentConditions) -> str:
+        is_us = (loc.country_code or "").upper() == 'US'
+        
+        # Temp Logic
+        temp_val = int(current.temperature)
+        temp_unit = "degrees celsius"
+        if is_us:
+            temp_val = int((current.temperature * 9/5) + 32)
+            temp_unit = "degrees" # US usually assumes F
+            
         wind = ""
-        if current.wind_speed and current.wind_speed > 5:
-            mph = int(current.wind_speed * 0.621371)
-            wind = self._t('wind_fmt', dir=current.wind_direction, kph=int(current.wind_speed), mph=mph)
+        # Low threshold for wind
+        if current.wind_speed is not None and current.wind_speed > 2:
+            direction = current.wind_direction
+            
+            # Expand abbreviations
+            dirs = {
+                "N": "North", "NNE": "North Northeast", "NE": "Northeast", "ENE": "East Northeast",
+                "E": "East", "ESE": "East Southeast", "SE": "Southeast", "SSE": "South Southeast",
+                "S": "South", "SSW": "South Southwest", "SW": "Southwest", "WSW": "West Southwest",
+                "W": "West", "WNW": "West Northwest", "NW": "Northwest", "NNW": "North Northwest"
+            }
+            
+            if direction and direction in dirs:
+                direction = dirs[direction]
+            
+            # Wind Speed Logic
+            speed_val = int(current.wind_speed)
+            speed_unit = "kilometers per hour"
+            if is_us:
+                speed_val = int(current.wind_speed * 0.621371)
+                speed_unit = "miles per hour"
+            
+            if direction:
+                wind = f", with winds from the {direction} at {speed_val} {speed_unit}"
+            else:
+                wind = f", with winds at {speed_val} {speed_unit}"
         
-        intro = self._t('current_intro', city=loc.city, region=loc.region)
-        temp_str = self._t('temp_fmt', temp_c=int(current.temperature), temp_f=self._c_to_f(current.temperature))
-        cond_str = self._t('conditions_fmt', desc=current.description, wind=wind)
-        
-        return f"{intro} {temp_str} {cond_str}"
+        return (
+            f"Current conditions for {loc.city}, {loc.region}. "
+            f"The temperature is {temp_val} {temp_unit}. "
+            f"Conditions are {current.description}{wind}."
+        )
 
-    def announce_forecast(self, forecasts: List[WeatherForecast]) -> str:
+    def announce_forecast(self, forecasts: List[WeatherForecast], loc: LocationInfo, verbose: bool = True) -> str:
         if not forecasts:
             return ""
+            
+        is_us = (loc.country_code or "").upper() == 'US'
         
-        text = self._t('forecast_intro')
-        for f in forecasts[:3]:
+        text = "Here is the forecast. "
+        
+        limit = 4 if not verbose else len(forecasts)
+        
+        for f in forecasts[:limit]: 
             temp = ""
             if f.high_temp is not None:
-                temp = self._t('high_fmt', c=int(f.high_temp), f=self._c_to_f(f.high_temp))
+                val = f.high_temp
+                if is_us: val = (val * 9/5) + 32
+                temp = f" High {int(val)}."
             elif f.low_temp is not None:
-                temp = self._t('low_fmt', c=int(f.low_temp), f=self._c_to_f(f.low_temp))
+                val = f.low_temp
+                if is_us: val = (val * 9/5) + 32
+                temp = f" Low {int(val)}."
             
-            text += self._t('period_fmt', period=f.period_name, summary=f.summary, temp=temp)
+            # Always prefer short_summary if available for the new style
+            condition = f.short_summary if f.short_summary else f.summary
+                
+            text += f"{f.period_name}: {condition}.{temp} Break. [PAUSE] "
             
         return text
 
     def announce_alerts(self, alerts: List[WeatherAlert], timezone: str = None) -> str:
         if not alerts:
-            return self._t('no_alerts')
-
+            return "There are no active weather alerts."
+        
         try:
             tz = pytz.timezone(timezone) if timezone else pytz.utc
         except Exception:
             tz = pytz.utc
 
-        text = self._t('alerts_intro', count=len(alerts))
+        text = f"There are {len(alerts)} active weather alerts. "
         for a in alerts:
             start = a.onset if a.onset else a.effective
             end = a.ends if a.ends else a.expires
             
             start_str = self._fmt_alert_dt(start, tz)
             end_str = self._fmt_alert_dt(end, tz)
-            text += self._t('alert_item', title=a.title, effective=start_str, expires=end_str)
-
+            
+            if self.lang == 'fr':
+                text += f"Un {a.title} est en vigueur du {start_str} au {end_str}. "
+            else:
+                text += f"A {a.title} is in effect from {start_str} until {end_str}. "
+            
+        # Add sign-off to alerts
+        callsign = self.config.get('station', {}).get('callsign')
+        if callsign:
+             text += f" {callsign} Clear."
+             
         return text
 
-    def build_full_report(self, loc: LocationInfo, current: CurrentConditions, forecast: List[WeatherForecast], alerts: List[WeatherAlert], sun_info: str = "") -> str:
+    def get_clock_offset(self) -> float:
+        """Returns the system clock offset in seconds, or None if unavailable."""
+        try:
+            result = subprocess.run(['chronyc', 'tracking'], capture_output=True, text=True, timeout=2)
+            if result.returncode != 0:
+                return None
+            match = re.search(r"Last offset\s*:\s*([+-]?\d+\.\d+)\s*seconds", result.stdout)
+            if match:
+                return float(match.group(1))
+        except Exception:
+            pass
+        return None
+
+    def get_time_offset_message(self, agency_name: str) -> str:
+        """
+        Returns string like "The system clock differs from [Agency] official time by 0.3 seconds."
+        """
+        offset = self.get_clock_offset()
+        if offset is None:
+            return ""
+            
+        abs_offset = abs(offset)
+        offset_str = f"{abs_offset:.3f}".rstrip('0').rstrip('.')
+        
+        if abs_offset < 0.000001: return ""
+        
+        return f"The system clock differs from {agency_name} official time by {offset_str} seconds."
+
+    def build_full_report(self, loc: LocationInfo, current: CurrentConditions, forecast: List[WeatherForecast], alerts: List[WeatherAlert], sun_info: str = "", report_config: dict = None) -> str:
         parts = []
         
+        # Default Config if None
+        if report_config is None:
+            report_config = {
+                'time': True,
+                'time_error': False,
+                'conditions': True,
+                'forecast': True,
+                'forecast_verbose': False, 
+                'astro': True,
+                'solar_flux': False,
+                'status': False,
+                'code_source': False
+            }
+        
+        # Time string
+        tz_name = self.config.get('location', {}).get('timezone', 'UTC')
         try:
-            tz = pytz.timezone(loc.timezone)
+            tz = pytz.timezone(tz_name)
             now = datetime.now(tz)
         except Exception:
             now = datetime.now()
-
-        time_fmt = self.s.get('time_fmt', "%I %M %p")
-        now_str = now.strftime(time_fmt)
-        if self.lang == 'en' and now_str.startswith("0"):
-            now_str = now_str[1:]
             
-        parts.append(self._t('greeting', time=now_str))
-        parts.append(self._t('intro_city', city=loc.city))
+        now_str = now.strftime("%I %M %p")
+        if now_str.startswith("0"): 
+            now_str = now_str[1:]
+        
+        # State Expansion Map
+        states_map = {
+            "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California", 
+            "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia", 
+            "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", 
+            "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland", 
+            "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri", 
+            "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", 
+            "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", 
+            "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina", 
+            "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont", 
+            "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+            "DC": "District of Columbia"
+        }
+        
+        region_clean = loc.region.upper() if loc.region else ""
+        region_full = states_map.get(region_clean, loc.region) 
+        
+        # Intro callsign logic
+        callsign = self.config.get('station', {}).get('callsign')
+        full_callsign = callsign or ""
+        
+        if callsign:
+            suffix = ""
+            upper_call = callsign.upper()
+            country = loc.country_code.upper() if loc.country_code else ""
+            
+            if country == 'CA' and not upper_call.startswith('V'):
+                 suffix = " Portable Canada"
+            elif country == 'US' and upper_call.startswith('V'):
+                 suffix = " Portable U S"
+            
+            full_callsign = f"{callsign}{suffix}"
+            parts.append(f"CQ CQ CQ. This is {full_callsign} with the updated weather report.")
+        else:
+            parts.append("Good day.")
+
+        # Time Section
+        if report_config.get('time', True):
+            tz_str = now.strftime("%Z")
+            tz_map = {
+                'EST': 'Eastern Standard Time', 'EDT': 'Eastern Daylight Time',
+                'CST': 'Central Standard Time', 'CDT': 'Central Daylight Time',
+                'MST': 'Mountain Standard Time', 'MDT': 'Mountain Daylight Time',
+                'PST': 'Pacific Standard Time', 'PDT': 'Pacific Daylight Time',
+                'AST': 'Atlantic Standard Time', 'ADT': 'Atlantic Daylight Time',
+                'NST': 'Newfoundland Standard Time', 'NDT': 'Newfoundland Daylight Time',
+                'AKST': 'Alaska Standard Time', 'AKDT': 'Alaska Daylight Time',
+                'HST': 'Hawaii Standard Time', 'HDT': 'Hawaii Daylight Time'
+            }
+            full_tz = tz_map.get(tz_str, tz_str)
+            
+            agency = "National Atomic"
+            if loc.country_code == "US":
+                agency = "National Institute of Standards and Technology"
+            elif loc.country_code == "CA":
+                agency = "National Research Council Canada"
+                
+            parts.append(f"The time is {now_str} {full_tz}. Time provided by the {agency}.")
+
+        # Time Error Section
+        if report_config.get('time_error', False):
+             agency_short = "National Atomic"
+             if loc.country_code == "US":
+                 agency_short = "National Institute of Standards and Technology"
+             elif loc.country_code == "CA":
+                 agency_short = "National Research Council"
+             
+             msg = self.get_time_offset_message(agency_short)
+             if msg: parts.append(msg + " Break. [PAUSE]")
+
+        parts.append(f"This is the automated weather report for {loc.city}, {region_full}. Break. [PAUSE]")
         
         if alerts:
-            parts.append(self._t('alert_advise') + self.announce_alerts(alerts, timezone=loc.timezone))
+             parts.append("Please be advised: " + self.announce_alerts(alerts, timezone=loc.timezone) + " Break. [PAUSE]")
              
-        parts.append(self.announce_conditions(loc, current))
-        parts.append(self.announce_forecast(forecast))
+        # Conditions
+        if report_config.get('conditions', True):
+            parts.append(self.announce_conditions(loc, current) + " Break. [PAUSE]")
+            
+        # Forecast
+        if report_config.get('forecast', True):
+            is_verbose = report_config.get('forecast_verbose', False)
+            parts.append(self.announce_forecast(forecast, loc, verbose=is_verbose))
         
-        if sun_info:
-            parts.append(sun_info)
+        # Astro
+        if report_config.get('astro', True) and sun_info:
+            parts.append(sun_info + " Break. [PAUSE]")
+
+        # Solar Flux
+        if report_config.get('solar_flux', False):
+             try:
+                 from .provider.astro import AstroProvider
+                 ap = AstroProvider()
+                 sfi = ap.get_solar_flux()
+                 if sfi: parts.append(sfi + " Break. [PAUSE]")
+             except Exception: pass
+
+        # Status
+        if report_config.get('status', False):
+            interval = self.config.get('alerts', {}).get('check_interval_minutes', 10)
+            sev = self.config.get('alerts', {}).get('min_severity', 'Watch')
+            tone_sev = self.config.get('alerts', {}).get('alert_tone', {}).get('min_severity', 'Warning')
+            parts.append(f"System status: Monitoring for {sev} level events and higher. Tone alerts active for {tone_sev} events and higher. Monitoring interval is {interval} minutes. Break. [PAUSE]")
+
+        # Code Source
+        if report_config.get('code_source', False):
+            parts.append("A S L 3 underscore w x underscore announce is available on github and developed by N 7 X O B as non-commercial code provided for the benefit of the amateur radio community.")
+            
+            if loc.country_code == 'US':
+                parts.append("Data provided by the National Weather Service and the National Institute of Standards and Technology.")
+            elif loc.country_code == 'CA':
+                parts.append("Data provided by Environment Canada, National Research Council Canada, and the National Alert Aggregation and Dissemination System.")
+                
+            parts.append("Break. [PAUSE]")
+
+        # Outro
+        parts.append(f"This concludes the weather report for {loc.city}. {full_callsign} Clear.")
             
         return " ".join(parts)
+
+    def get_test_preamble(self, loc: LocationInfo = None) -> str:
+        callsign = self.config.get('station', {}).get('callsign', 'Amateur Radio')
+        return (
+            f"{callsign} Testing. The following is an alerting test of an automated alerting notification and message. "
+            "Do not take any action as a result of the following message. "
+            "Repeating - take no action - this is only a test. "
+            "The test tones will follow in 10 seconds."
+        )
+
+    def get_test_message(self) -> str:
+        return (
+            "This is a test message. "
+            "This is a sample emergency test message. "
+            "This is only a test. No action is required."
+        )
+
+    def get_test_postamble(self, loc: LocationInfo = None) -> str:
+        callsign = self.config.get('station', {}).get('callsign', 'Amateur Radio')
+        return (
+            f"{callsign} reminds you this was a test. "
+            "Do not take action. Repeat - take no action. "
+            "If this was an actual emergency, the preceding tone would be followed by specific information "
+            "from official authorities on an imminent emergency that requires your immediate attention "
+            "and possibly action to prevent loss of life, injury or property damage. "
+            "This test is concluded."
+        )
+
+    def get_startup_message(self, loc: LocationInfo, interval: int, active_interval: int, nodes: List[str], source_name: str, hourly_config: dict = None) -> str:
+        callsign = self.config.get('station', {}).get('callsign', 'Station')
+        city = loc.city if loc.city else "Unknown Location"
+        
+        node_str = ""
+        if nodes:
+            formatted_nodes = [" ".join(list(str(n))) for n in nodes]
+            if len(formatted_nodes) == 1:
+                node_str = f"Active on node {formatted_nodes[0]}. "
+            else:
+                joined = " and ".join(formatted_nodes)
+                node_str = f"Active on nodes {joined}. "
+
+        # Time Calc
+        tz_name = self.config.get('location', {}).get('timezone', 'UTC')
+        try:
+            tz = pytz.timezone(tz_name)
+            now = datetime.now(tz)
+        except Exception:
+            now = datetime.now()
+            
+        now_str = now.strftime("%I %M %p")
+        if now_str.startswith("0"): 
+            now_str = now_str[1:]
+            
+        tz_str = now.strftime("%Z")
+        tz_map = {
+            'EST': 'Eastern Standard Time', 'EDT': 'Eastern Daylight Time',
+            'CST': 'Central Standard Time', 'CDT': 'Central Daylight Time',
+            'MST': 'Mountain Standard Time', 'MDT': 'Mountain Daylight Time',
+            'PST': 'Pacific Standard Time', 'PDT': 'Pacific Daylight Time',
+            'AST': 'Atlantic Standard Time', 'ADT': 'Atlantic Daylight Time',
+            'NST': 'Newfoundland Standard Time', 'NDT': 'Newfoundland Daylight Time',
+            'AKST': 'Alaska Standard Time', 'AKDT': 'Alaska Daylight Time',
+            'HST': 'Hawaii Standard Time', 'HDT': 'Hawaii Daylight Time'
+        }
+        full_tz = tz_map.get(tz_str, tz_str)
+
+        agency_short = "National Atomic"
+        if loc.country_code == "US":
+            agency_short = "National Institute of Standards and Technology"
+        elif loc.country_code == "CA":
+            agency_short = "National Research Council"
+             
+        offset = self.get_clock_offset()
+        offset_msg = ""
+        
+        if offset is not None:
+            abs_offset = abs(offset)
+            if abs_offset >= 0.000001:
+                offset_str = f"{abs_offset:.3f}".rstrip('0').rstrip('.')
+                offset_msg = f"The system clock differs from {agency_short} official time by {offset_str} seconds."
+                
+                if abs_offset > 60:
+                    offset_msg += " Time Error warrants correction to ensure timely notifications."
+
+        time_msg = f"The time is {now_str} {full_tz}. {offset_msg}"
+
+        msg = (
+            f"{callsign} Automatic Monitoring Online. "
+            f"Data provided by {source_name}. "
+            f"{node_str}"
+            f"Current location {city}. "
+            f"{time_msg} "
+            f"Active Alert Check Interval {interval} minutes. "
+            f"Dynamic Alert Check Interval {active_interval} minutes. "
+        )
+
+        if hourly_config and hourly_config.get('enabled', False):
+            minute = hourly_config.get('minute', 0)
+            msg += f"Hourly report is on. Hourly notifications will occur at {minute} minutes after the hour. "
+            
+            content = hourly_config.get('content', {})
+            enabled_items = []
+            
+            order = ['time', 'time_error', 'conditions', 'forecast', 'forecast_verbose', 'astro', 'solar_flux', 'status', 'code_source']
+            
+            for key in order:
+                if content.get(key, False):
+                    spoken = key.replace('_', ' ')
+                    if key == 'astro': spoken = 'astronomy'
+                    enabled_items.append(spoken)
+            
+            if enabled_items:
+                if len(enabled_items) == 1:
+                    msg += f"Content includes {enabled_items[0]}."
+                else:
+                    joined_content = ", ".join(enabled_items[:-1]) + " and " + enabled_items[-1]
+                    msg += f"Content includes {joined_content}."
+        
+        return msg
+
+    def get_interval_change_message(self, interval_mins: int, active_alerts: bool, loc: LocationInfo = None) -> str:
+        callsign = self.config.get('station', {}).get('callsign', 'Station')
+        if active_alerts:
+             return f"{callsign} Notification. The monitoring interval is being changed to {interval_mins} minute{'s' if interval_mins!=1 else ''} due to active alerts in the area."
+        else:
+             return f"{callsign} Notification. Active alerts have expired. The monitoring interval is being changed back to {interval_mins} minutes."

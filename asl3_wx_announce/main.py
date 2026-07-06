@@ -2,6 +2,9 @@ import argparse
 import yaml
 import time
 import logging
+import subprocess
+import sys
+from datetime import datetime
 from .models import AlertSeverity
 from .location import LocationService
 from .provider.factory import get_provider_instance
@@ -12,11 +15,44 @@ from .audio import AudioHandler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("asl3_wx")
 
+def wait_for_asterisk(timeout=120):
+    """
+    Polls Asterisk until it is ready to accept commands.
+    """
+    logger.info("Waiting for Asterisk to be fully booted...")
+    start_time = time.time()
+    while (time.time() - start_time) < timeout:
+        try:
+            # Check if Asterisk is running and accepting CLI commands
+            # 'core waitfullybooted' ensures modules are loaded
+            subprocess.run("sudo /usr/sbin/asterisk -rx 'core waitfullybooted'", 
+                         shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            logger.info("Asterisk is ready.")
+            return True
+        except subprocess.CalledProcessError:
+            time.sleep(2)
+            
+    logger.error("Timeout waiting for Asterisk.")
+    return False
+
 def load_config(path):
     with open(path, 'r') as f:
         return yaml.safe_load(f)
 
-def do_full_report(config):
+def setup_logging(config):
+    """
+    Configure logging based on config settings.
+    """
+    level = logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+def do_full_report(config, report_config=None):
     loc_svc = LocationService(config)
     lat, lon = loc_svc.get_coordinates()
     
@@ -24,8 +60,33 @@ def do_full_report(config):
     prov_code = config.get('location', {}).get('provider')
     provider = get_provider_instance(CountryCode=prov_code, Lat=lat, Lon=lon, Config=config)
     
+    # Auto-Timezone
+    source = config.get('location', {}).get('source', 'fixed')
+    cfg_tz = config.get('location', {}).get('timezone')
+    
     # Fetch Data
     loc_info = provider.get_location_info(lat, lon)
+    
+    # Auto-Timezone Logic
+    # 1. Prefer Provider's detected timezone (e.g. NWS provides it)
+    if loc_info.timezone and loc_info.timezone not in ['UTC', 'Unknown']:
+        logger.info(f"Using Provider Timezone: {loc_info.timezone}")
+        if 'location' not in config: config['location'] = {}
+        config['location']['timezone'] = loc_info.timezone
+        
+    # 2. Fallback to Config
+    elif cfg_tz:
+         logger.info(f"Using Config Timezone: {cfg_tz}")
+         
+    # 3. Last Resort: UTC
+    else:
+        logger.warning("No timezone found! Defaulting to UTC.")
+    
+    # Manual City Override
+    manual_city = config.get('location', {}).get('city')
+    if manual_city:
+        loc_info.city = manual_city
+        
     logger.info(f"Resolved Location: {loc_info.city}, {loc_info.region} ({loc_info.country_code})")
     
     conditions = provider.get_conditions(lat, lon)
@@ -38,30 +99,47 @@ def do_full_report(config):
     
     # Narrate
     narrator = Narrator(config)
-    text = narrator.build_full_report(loc_info, conditions, forecast, alerts, sun_info)
+    text = narrator.build_full_report(loc_info, conditions, forecast, alerts, sun_info, report_config=report_config)
     logger.info(f"Report Text: {text}")
     
     # Audio
     handler = AudioHandler(config)
-    wav_file = handler.generate_audio(text, "report.ul")
+    wav_files = handler.generate_audio(text, "report.gsm")
     
     # Play
-    nodes = config.get('audio', {}).get('nodes', [])
-    handler.play_on_nodes(wav_file, nodes)
+    nodes = config.get('voice', {}).get('nodes', [])
+    handler.play_on_nodes(wav_files, nodes)
 
 def monitor_loop(config):
-    interval = config.get('alerts', {}).get('check_interval_minutes', 10) * 60
+    normal_interval = config.get('alerts', {}).get('check_interval_minutes', 10) * 60
+    current_interval = normal_interval
+    do_hourly = config.get('station', {}).get('hourly_report', {}).get('enabled', False) if isinstance(config.get('station', {}).get('hourly_report'), dict) else config.get('station', {}).get('hourly_report', False)
+    
     known_alerts = set()
     
+    # Initialize service objects
     loc_svc = LocationService(config)
+    lat, lon = loc_svc.get_coordinates()
+    prov_code = config.get('location', {}).get('provider')
+    provider = get_provider_instance(CountryCode=prov_code, Lat=lat, Lon=lon, Config=config)
     narrator = Narrator(config)
     handler = AudioHandler(config)
-    nodes = config.get('audio', {}).get('nodes', [])
-    prov_code = config.get('location', {}).get('provider')
+    nodes = config.get('voice', {}).get('nodes', [])
+    
+    # Resolve initial location info for city name and timezone
+    info = provider.get_location_info(lat, lon)
+    
+    # Initialize AlertReady (Optional)
+    ar_provider = None
+    if config.get('alerts', {}).get('enable_alert_ready', False):
+        try:
+             # Lazy import
+             from .provider.alert_ready import AlertReadyProvider
+             ar_provider = AlertReadyProvider(alerts=config.get('alerts', {}))
+             logger.info("AlertReady Provider Enabled.")
+        except Exception as e:
+             logger.error(f"Failed to load AlertReadyProvider: {e}")
 
-<<<<<<< HEAD
-    logger.info("Starting Alert Monitor...")
-=======
     logger.info(f"Starting Alert Monitor... (Hourly Reports: {do_hourly})")
     
     # Robust Wait for Asterisk
@@ -71,8 +149,6 @@ def monitor_loop(config):
         
         try:
             # Startup Announcement
-            # Resolve initial location info for city name
-            # info variable is already fetched above
             city_name = info.city if info.city else "Unknown Location"
             interval_mins = int(normal_interval / 60)
             active_mins = config.get('alerts', {}).get('active_check_interval_minutes', 1)
@@ -105,58 +181,24 @@ def monitor_loop(config):
     last_alert_check = 0
     last_location_check = time.time()
     last_report_hour = -1
->>>>>>> dfc4beb (Fix provider logic to prioritize coordinates and add location to startup message)
     
     while True:
-        try:
-            # Update location each interval for mobile nodes
-            lat, lon = loc_svc.get_coordinates()
-            # Re-init provider with new coords
-            provider = get_provider_instance(CountryCode=prov_code, Lat=lat, Lon=lon, Config=config)
-            
-            alerts = provider.get_alerts(lat, lon)
-            current_ids = {a.id for a in alerts}
-            
-            new_alerts = []
-            for a in alerts:
-                if a.id not in known_alerts:
-                    new_alerts.append(a)
-                    known_alerts.add(a.id)
-            
-            # Announce new items
-            if new_alerts:
-                logger.info(f"New Alerts detected: {len(new_alerts)}")
-                loc_info = provider.get_location_info(lat, lon)
-                text = narrator.announce_alerts(new_alerts, timezone=loc_info.timezone)
-                wav = handler.generate_audio(text, "alert.ul")
-                handler.play_on_nodes(wav, nodes)
-            
-            # Cleanup expired from known
-            known_alerts = known_alerts.intersection(current_ids)
-            
-        except Exception as e:
-            logger.error(f"Monitor error: {e}")
+        now = time.time()
+        now_dt = datetime.fromtimestamp(now)
         
-<<<<<<< HEAD
-        time.sleep(interval)
-=======
         # 1. Hourly Report Check
-        # Check config struct
         hr_config = config.get('station', {}).get('hourly_report', {})
-        # Handle legacy boolean if present (though we updated config)
         if isinstance(hr_config, bool):
             hr_enabled = hr_config
             hr_minute = 0
-            hr_content = None # Use default
+            hr_content = None
         else:
             hr_enabled = hr_config.get('enabled', False)
             hr_minute = hr_config.get('minute', 0)
-            hr_content = hr_config.get('content') # dict or None
+            hr_content = hr_config.get('content')
 
         if hr_enabled:
             # Check if minute matches and we haven't run this hour yet
-            # Note: We track last_report_hour. If minute is 15, we run at 10:15.
-            # We need to ensure we don't run multiple times in the same hour.
             if now_dt.minute == hr_minute and now_dt.hour != last_report_hour:
                 logger.info(f"Triggering Hourly Weather Report (Scheduled for XX:{hr_minute:02d})...")
                 try:
@@ -195,9 +237,9 @@ def monitor_loop(config):
                 tone_config = config.get('alerts', {}).get('alert_tone', {})
                 ranks = {'Unknown': 0, 'Advisory': 1, 'Watch': 2, 'Warning': 3, 'Critical': 4}
                 
-                # 1. Determine Max Severity of ALL active alerts for Dynamic Polling
+                # Determine Max Severity of ALL active alerts for Dynamic Polling
                 max_severity_rank = 0
-                for a in alerts: # Scan ALL active alerts
+                for a in alerts:
                      s_val = a.severity.value if hasattr(a.severity, 'value') else str(a.severity)
                      rank = ranks.get(s_val, 0)
                      if rank > max_severity_rank:
@@ -208,7 +250,6 @@ def monitor_loop(config):
                 active_threat = False
                 
                 if max_severity_rank >= 2:
-                    # Default to 1 minute if not set
                     active_mins = config.get('alerts', {}).get('active_check_interval_minutes', 1)
                     new_interval = active_mins * 60
                     active_threat = True
@@ -229,7 +270,7 @@ def monitor_loop(config):
                     except Exception as e:
                         logger.error(f"Failed to announce interval change: {e}")
 
-                # 2. Check for Tone Trigger (New Alerts Only)
+                # Check for Tone Trigger (New Alerts Only)
                 if new_alerts and tone_config.get('enabled', False):
                     min_sev_str = tone_config.get('min_severity', 'Warning')
                     threshold = ranks.get(min_sev_str, 3)
@@ -252,7 +293,7 @@ def monitor_loop(config):
                 # Announce new items
                 if new_alerts:
                     logger.info(f"New Alerts detected: {len(new_alerts)}")
-                    text = narrator.announce_alerts(new_alerts, loc=info)
+                    text = narrator.announce_alerts(new_alerts, timezone=info.timezone)
                     wavs = handler.generate_audio(text, "alert.gsm")
                     handler.play_on_nodes(wavs, nodes)
                 
@@ -272,20 +313,16 @@ def monitor_loop(config):
                     logger.info("Checking for location update...")
                     new_lat, new_lon = loc_svc.get_coordinates()
                     
-                    # Simple change detection (approx 100-200m difference)
                     if abs(new_lat - lat) > 0.002 or abs(new_lon - lon) > 0.002:
                         logger.info(f"Location changed: ({lat},{lon}) -> ({new_lat},{new_lon})")
                         lat, lon = new_lat, new_lon
                         
-                        # Refresh Location Info (City/State)
                         info = provider.get_location_info(lat, lon)
                         logger.info(f"New Location Resolved: {info.city}, {info.region}")
-                        
-                        # Note: We rely on the next alert check to pick up the new zone/lat/lon
                 except Exception as e:
                     logger.warning(f"Failed to refresh location: {e}")
 
-        # Check every minute (resolution of the loop)
+        # Check every minute
         time.sleep(60)
 
 def do_test_alert(config):
@@ -320,8 +357,6 @@ def do_test_alert(config):
     time.sleep(10)
     
     # 3. Alert Tone
-    # Check if tone is enabled in config, otherwise force it for test? 
-    # User said "The preceding tone" in postamble, so we should play it regardless of config setting for the TEST mode.
     logger.info("Playing Alert Tone...")
     tone_file = handler.ensure_alert_tone()
     handler.play_on_nodes([tone_file], nodes)
@@ -339,19 +374,30 @@ def do_test_alert(config):
     handler.play_on_nodes(files, nodes)
     
     logger.info("Test Alert Concluded.")
->>>>>>> dfc4beb (Fix provider logic to prioritize coordinates and add location to startup message)
 
 def main():
     parser = argparse.ArgumentParser(description="ASL3 Weather Announcer")
     parser.add_argument("--config", default="config.yaml", help="Path to config file")
-    parser.add_argument("--report", action="store_true", help="Play full weather report now")
+    parser.add_argument("--report", action="store_true", help="Run immediate full weather report")
     parser.add_argument("--monitor", action="store_true", help="Run in continuous monitor mode")
+    parser.add_argument("--test-alert", action="store_true", help="Run a comprehensive Test Alert sequence")
     
     args = parser.parse_args()
     config = load_config(args.config)
+    setup_logging(config)
     
-    if args.report:
-        do_full_report(config)
+    if args.test_alert:
+        do_test_alert(config)
+        sys.exit(0)
+    elif args.report:
+        hr_config = config.get('station', {}).get('hourly_report', {})
+        if isinstance(hr_config, bool):
+             content = None
+        else:
+             content = hr_config.get('content')
+             
+        do_full_report(config, report_config=content)
+        sys.exit(0)
     elif args.monitor:
         monitor_loop(config)
     else:
