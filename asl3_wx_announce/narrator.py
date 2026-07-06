@@ -104,10 +104,8 @@ class Narrator:
                 if is_us: val = (val * 9/5) + 32
                 temp = f" Low {int(val)}."
             
-            # Always prefer short_summary if available for the new style
             condition = getattr(f, 'short_summary', None) or f.summary
-                
-            text += f"{f.period_name}: {condition}.{temp} Break. [PAUSE] "
+            text += f"{f.period_name}: {condition}.{temp} "
             
         return text
 
@@ -280,7 +278,7 @@ class Narrator:
         # Forecast
         if report_config.get('forecast', True):
             is_verbose = report_config.get('forecast_verbose', False)
-            parts.append(self.announce_forecast(forecast, loc, verbose=is_verbose))
+            parts.append(self.announce_forecast(forecast, loc, verbose=is_verbose) + " Break. [PAUSE]")
         
         # Astro
         if report_config.get('astro', True) and sun_info:
